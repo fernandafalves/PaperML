@@ -1,0 +1,99 @@
+# ---------------------------------------------------------------------------------------------------------------------------------------------
+# Instance Generation - Triangular Inequalities - Uniform Distribution - Parallel Machines - Without Infeasibilities
+# ---------------------------------------------------------------------------------------------------------------------------------------------
+
+option randseed 1000;
+
+param n;
+param v;
+
+set J ordered:= 1..n;
+set T ordered:= 1..2;
+
+param val;
+param Cj {i in 1..9};
+param p{i in J};
+param B{i in J};
+param setup{i in 0..n, j in J};
+param D{i in J, t in T};
+param dd{i in J, t in T};
+param K:= 112;
+param contador1;
+param W{i in J};
+
+let Cj[1]:= 4;
+let Cj[2]:= 6;
+let Cj[3]:= 8;
+let Cj[4]:= 10;
+let Cj[5]:= 12;
+let Cj[6]:= 15;
+let Cj[7]:= 20;
+let Cj[8]:= 50;
+let Cj[9]:= 100;
+
+let val:= 1;
+
+repeat while val <= 9{                                                                                                                                                  
+
+    let n:= Cj[val];
+    let v:= 1;
+
+	repeat while v <= 15{ 
+		let {i in 0..n, j in J} setup[i,j]:= trunc(50/n + (10/n*Uniform01()),1);
+		let {i in J, t in T} D[i,t]:= ceil(Uniform(8,12));
+		let {i in J} p[i]:= trunc(20/n + ((10/n)*Uniform01()),1);
+		let {i in J} B[i]:= ceil(7 + 0.3*7*Uniform01());
+		let {i in J} W[i]:= ceil(Uniform(2,5));
+
+		# Guarantee the triangular inequality
+		repeat{
+			let contador1:= 0;
+			for{i in 0..n}{
+				for{j in 1..n: j <> i}{
+					for{l in 1..n: l <> i && l <> j}{
+						if (setup[i,j] > setup[i,l] + setup[l,j]) then{
+							let setup[i,j]:= min(trunc(50/n + (10/n*Uniform01()),1), setup[i,l] + setup[l,j]);
+							let contador1:= 1;
+						}
+					}
+				}
+			}
+		} while(contador1 == 1);
+
+		for {j in J}{
+			for{i in 0..n}{
+				if (setup[i,j] < 0 || p[j] < 0) then{
+					printf "Problem!!!" >> ResultadoIU_PM_WI.txt;
+				}
+			}
+			for {t in T}{
+				if (D[j,t] < 0) then{
+					printf "Problem!!!" >> ResultadoIU_PM_WI.txt;
+				}
+			}
+		}
+
+		let {i in J, t in T} dd[i,t]:= ceil(Uniform(max{j in J}(setup[0,j] + p[j]),112));
+
+		for{i in J}{
+			printf "%d \n", B[i] >> ("./Data_Tardiness/B" & n & v &".txt");
+			printf "%f \n", p[i] >> ("./Data_Tardiness/p" & n & v &".txt");
+			printf "%d \n", W[i] >> ("./Data_Tardiness/W" & n & v &".txt");
+			
+			for{t in T}{
+				printf "%d \n", D[i,t] >> ("./Data_Tardiness/D" & n & v &".txt");
+				printf "%d \n", dd[i,t] >> ("./Data_Tardiness/dd" & n & v &".txt");
+			}
+		}
+		
+		for{i in 0..n}{
+			for{j in J}{
+					printf "%f \n", setup[i,j] >> ("./Data_Tardiness/setup" & n & v &".txt");
+			}
+		}
+
+		let v:= v + 1;
+	}
+	let val:= val + 1;
+}
+

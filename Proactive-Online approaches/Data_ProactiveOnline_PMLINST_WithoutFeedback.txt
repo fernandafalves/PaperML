@@ -1,0 +1,233 @@
+# Data for the First Alternative - Machine Learning integrated with planning problems
+# Planning and scheduling considering machine breakdown
+# -------------------------------------------------------------------------------------------------------------------------------------------------------
+
+param val;
+param v;
+param scen;
+param UB_M1;
+param UB_M2;
+
+option eexit -100000;
+option display_precision 7;
+option auxfiles rca;
+option solver cplexamp;
+option omit_zero_rows 1;
+option cplex_options 'return_mipgap 3 clocktype=1 timelimit=120 integrality 3e-20 seed=123';
+suffix absmipgap OUT;
+suffix relmipgap OUT;
+option presolve 0;
+option randseed 123;
+
+param n;
+param tf:= 2;
+
+set J ordered:= 1..n;
+set T:= 0..tf;
+set M:= 1..2;
+set Cjs {M} ordered default {};                                         # Set of scheduled jobs
+set Set_A ordered default {};											# Set of unscheduled jobs
+set Set_Machines {i in J} default {};									# Set of machines to process job i
+set Set_B ordered default {};											# Machines in the ascending order of ET
+set Set_Repeated ordered default {};
+set Set_RepeatedII ordered default {};
+set Final_Sequence {M} ordered default {};
+set Final_Sequence_LS {M} ordered default {};
+set Best_Sequence {M} ordered default {};
+set Best_Sequence_Capacity {M} ordered default {};
+set Final_Sequence_LSII {M} ordered default {};
+set Final_Sequence_LSIII {M} ordered default {};
+set Final_Sequence_LSIV {M} ordered default {};
+set Set_Moment_Failures_1 ordered default {};
+set Set_Moment_Failures_2 ordered default {};
+set Set_Reference_Failures_1 ordered default {};
+set Set_Reference_Failures_2 ordered default {};
+set Set_Jobs {M};
+set SEQUENCE {M} ordered default {};
+set Set_failures_1 ordered default {};
+set Set_failures_2 ordered default {};
+set Current_Sequence {M} ordered default {};
+set Current_Sequence_Backup {M} ordered default {};
+set Previous_Sequence {M} ordered default {};
+set Failures_1 ordered default {};
+set Failures_2 ordered default {};
+
+set Pressure ordered default {};
+set Speed ordered default {};
+set Temperature ordered default {};
+set Sound ordered default {};
+set Vibration ordered default {};
+set Pressure_M2 ordered default {};
+set Speed_M2 ordered default {};
+set Temperature_M2 ordered default {};
+set Sound_M2 ordered default {};
+set Vibration_M2 ordered default {};
+set Reference_Pressure ordered default {};
+set Reference_Speed ordered default {};
+set Reference_Temperature ordered default {};
+set Reference_Sound ordered default {};
+set Reference_Vibration ordered default {};
+set Reference_Pressure_M2 ordered default {};
+set Reference_Speed_M2 ordered default {};
+set Reference_Temperature_M2 ordered default {};
+set Reference_Sound_M2 ordered default {};
+set Reference_Vibration_M2 ordered default {};
+
+param D{i in J, t in T};
+param p{i in J};
+param W{i in J};
+param dd{i in J, t in T};
+param K{mm in M, t in T};
+param setup{i in 0..n, j in J};
+param Sm{j in J};
+param Cj {i in 1..9};
+param tempo;
+let tempo:= _ampl_time + _total_solve_time;
+param tt;
+param DFailure{mm in M};
+param MFailure;
+
+# Parameters for the scheduling heuristic
+param novo_makespan{mm in M};
+param novo_makespan_reference{mm in M};
+param contador{mm in M};
+param contadorII{mm in M};
+param quant{i in J};
+param ET{i in 0..card(J)};
+param ET_LS{mm in M,i in 0..card(J)};
+param L{j in 1..card(M)};
+param L_LS{j in 1..card(M)};
+param machine_j;
+param r;
+param f;
+param TARDINESS{i in J};
+param i_star;
+param q_LS{j in J, t in 1..tf, mm in M};
+param Cmax{mm in M};
+param Objective_Function;
+param Best_Objective_Function;
+param Best_Cmax{mm in M};
+param Best_q{j in J, t in 1..tf, mm in M};
+param Best_Cmax_Capacity{mm in M};
+param Best_Objective_Function_Capacity;
+let Best_Objective_Function_Capacity:= Infinity;
+param Best_q_Capacity{j in J, t in 1..tf, mm in M};
+param iteration;
+param Sequence{mm in M, i in 1..card(J)};
+param cont;
+param index{mm in M, j in J};
+param aux_Sequence;
+param aux_Index;
+param cc{mm in M};
+param Cmax_LS{mm in M};
+param aux_q{j in J, t in 1..tf, mm in M};
+param aux_q_LS{j in J, t in 1..tf, mm in M};
+param Capacity;
+param Final_Objective_Function;
+param Final_Cmax{mm in M};
+param pos{mm in M, c in 1..contador[mm], t in T};
+param posII{mm in M, c in 1..contadorII[mm], t in T};
+param Objective_Function_LS;
+param aux_sequence;
+param CT{mm in M, j in J};
+param CT_Backup{mm in M, j in J};
+param CT_II{mm in M, j in J};
+param CT_II_reference{mm in M, j in J};
+param CT_Machines{j in J};
+param Additional_OF;
+param Additional_OF_reference;
+param Jobs;
+param Original_Capacity:= 112;
+param OF_Tardiness;
+param OF_Tardiness_reference;
+param aux;
+param JS;
+param job;
+param idle{mm in M};
+param idle_reference{mm in M};
+param total_backorder;
+let total_backorder:= 0;
+param total_tardiness;
+let total_tardiness:= 0;
+param total_add_of;
+let total_add_of:= 0;
+param total_of_tard;
+let total_of_tard:= 0;
+param total_idle;
+let total_idle:= 0;
+param deviation_1;
+param deviation_2;
+
+param Reference{mm in M};
+param MF;
+param MWF;
+param total_q{j in J, t in 1..tf, mm in M};
+param Original_q{j in J, t in 1..tf, mm in M};
+param Remaining_Setup{mm in M};
+param previous_job{mm in M};
+param next_job{mm in M};
+param marker_setup{mm in M};
+param subperiod;
+param Final_CT{mm in M,j in J};
+param Final_CT_Capacity{mm in M,j in J};
+param marker;
+param counter_failures;
+param int;
+param retrain;
+let retrain:= 0;
+param limit:= 0.35;
+param counter_retrain;
+param OF;
+let OF:= 0;
+
+param Pressure_pred{i in 1..112};
+param Speed_pred{i in 1..112};
+param Temperature_pred{i in 1..112};
+param Sound_pred{i in 1..112};
+param Vibration_pred{i in 1..112};
+param Pressure_M2_pred{i in 1..112};
+param Speed_M2_pred{i in 1..112};
+param Temperature_M2_pred{i in 1..112};
+param Sound_M2_pred{i in 1..112};
+param Vibration_M2_pred{i in 1..112};
+param Reference_Pressure_ref{i in 1..112};
+param Reference_Speed_ref{i in 1..112};
+param Reference_Temperature_ref{i in 1..112};
+param Reference_Sound_ref{i in 1..112};
+param Reference_Vibration_ref{i in 1..112};
+param Reference_Pressure_M2_ref{i in 1..112};
+param Reference_Speed_M2_ref{i in 1..112};
+param Reference_Temperature_M2_ref{i in 1..112};
+param Reference_Sound_M2_ref{i in 1..112};
+param Reference_Vibration_M2_ref{i in 1..112};
+
+let subperiod:= 0;
+param first_iteration;
+let first_iteration:= 1;
+param q{j in J, t in T, mm in M};
+
+var z{j in J, mm in M}, >= 0;
+var x{i in J union {0}, j in J union {0}, mm in M}, binary;
+var y{i in J, mm in M}, binary;
+var u{i in J, mm in M}, integer, >= 0, <= card(J) - 1;
+
+
+maximize A: sum{j in J, mm in M} (D[j,tt]*z[j,mm]);
+
+s.t. r1{mm in M}: sum{j in J} p[j]*D[j,tt]*z[j,mm] + sum{i in J union {0}, j in J: i != j} setup[i,j]*x[i,j,mm] <= K[mm,tt];
+
+s.t. r2{j in J, mm in M}: z[j,mm] <= y[j,mm];
+
+s.t. r3{i in J, mm in M}: sum{j in J union {0}: i != j} x[i,j,mm] = y[i,mm];
+
+s.t. r4{j in J, mm in M}: sum{i in J union {0}: i != j} x[i,j,mm] = y[j,mm];
+
+s.t. r5{mm in M}: sum{j in J} x[0,j,mm] = 1;
+
+s.t. r6{mm in M}: sum{i in J} x[i,0,mm] = 1;
+
+s.t. r7{i in J, j in J, mm in M: i != j}: u[i,mm] - u[j,mm] + card(J)*x[i,j,mm] <= card(J) - 1;
+
+s.t. r8{j in J, mm in M}: u[j,mm] <= card(J)*y[j,mm];
+
+s.t. r9{j in J}: sum{mm in M} z[j,mm] <= 1;

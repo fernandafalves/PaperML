@@ -1,0 +1,961 @@
+# First Alternative - Machine Learning integrated with planning problems
+# Planning and scheduling considering machine breakdown
+# -------------------------------------------------------------------------------------------------------------------------------------------------------
+
+if (tt = 1) then{
+	let {mm in M, h in T} K[mm,h]:= 112;
+}
+
+if (MFailure = 1) then{
+	if (v = 1) then{
+		printf "\n" >> /ResultPMLINST_F2.txt;
+	}
+
+	let Cj[1]:= 4;
+	let Cj[2]:= 6;
+	let Cj[3]:= 8;
+	let Cj[4]:= 10;
+	let Cj[5]:= 12;
+	let Cj[6]:= 15;
+	let Cj[7]:= 20;
+	let Cj[8]:= 50;
+	let Cj[9]:= 100;
+	let n:= Cj[val];
+	
+	for{i in 1..n}{
+		read p[i] < ("/Data_Tardiness/p" & n & v &".txt");
+		read W[i] < ("/Data_Tardiness/W" & n & v &".txt");
+		
+		for{t in 1..tf}{
+			read dd[i,t] < ("/Data_Tardiness/dd" & n & v &".txt");
+			read D[i,t] < ("/Data_Tardiness/D" & n & v &".txt");
+		}
+	}
+	
+	for{i in 0..n}{
+		for{j in 1..n}{
+			read setup[i,j] < ("/Data_Tardiness/setup" & n & v &".txt");
+		}
+	}
+
+	close ("/Data_Tardiness/setup" & n & v &".txt");
+	close ("/Data_Tardiness/D" & n & v &".txt");
+	close ("/Data_Tardiness/p" & n & v &".txt");
+	close ("/Data_Tardiness/W" & n & v &".txt");
+	close ("/Data_Tardiness/dd" & n & v &".txt");
+	
+	for {i in J, j in J: i = j}{
+		let setup[i,j]:= 0;
+	}
+
+	let {j in J} Sm[j]:= trunc((sum{i in 0..n: i != j}setup[i,j])/((max{k in J}k)),3); # Average setup
+
+	let tempo:= _ampl_time + _total_solve_time;
+
+	reset data Cjs, novo_makespan;
+
+	# Solve the lot-sizing problem
+
+	# The duration of the failures will be computed based on the prediction made by the machine learning algorithm
+	if (tt = 1) then{
+		let DFailure[1]:= card(Set_Moment_Failures_1);
+		let DFailure[2]:= card(Set_Moment_Failures_2);
+	} else{
+		let DFailure[1]:= card(Set_Moment_Failures_1) + UB_M1;
+		let DFailure[2]:= card(Set_Moment_Failures_2) + UB_M2;
+	}
+		
+		
+	let {mm in M} K[mm,tt]:= K[mm,tt] - DFailure[mm]; 
+	
+	reset data z, y, x, u;
+		
+	objective A;
+	restore r1; restore r2; restore r3; restore r4; restore r5; restore r6; restore r7; restore r8; restore r9;
+	solve;	
+	
+	let {j in J, mm in M} q[j,tt,mm]:= D[j,tt]*z[j,mm];
+	
+	#let {mm in M} K[mm]:= Original_Capacity;
+	
+	# Solve scheduling considering parallel machines, the minimization of the total weighted tardiness and job splitting
+	# Heuristic based on Park et al. (2012) named "Heuristic 1 (slack-based heuristic)" - MODIFIED
+	
+	let {mm in M} contador[mm]:= 0;
+	let {i in J} quant[i]:= 0;
+	let {i in 0..card(J)} ET[i]:= 0;
+	
+	# STEP 1 MAIN HEURISTIC
+	for{mm in M}{
+		for{j in J}{
+			if(y[j,mm] = 1) then{
+				let Set_A:= Set_A union {j}; # Set of unscheduled jobs
+				let quant[j]:= quant[j] + q[j,tt,mm];
+				let contador[mm]:= contador[mm] + 1;
+			}
+		}
+	}
+	
+	let {jj in M} L[jj]:= 0; # Last job assigned to machine jj
+	let  ET[0]:= 0; # Ending time of job 0
+	let machine_j:= 0;
+	reset data Final_Sequence;
+	
+	repeat{
+		# STEP 2 MAIN HEURISTIC- Allocation procedure (SPLIT)
+		for{k in Set_A}{
+			# STEP 1
+			for{i in Set_Machines[k]}{
+				let Set_Machines[k]:= Set_Machines[k] diff {i}; 
+			}
+									
+			# STEP 2 - Balancing workload
+			reset data Set_B;
+			
+			if (ET[L[1]] <= ET[L[2]]) then{
+				let Set_B:= Set_B union {1};
+				let Set_B:= Set_B union {2};
+			} else{
+				if (ET[L[1]] > ET[L[2]]) then{
+					let Set_B:= Set_B union {2};
+					let Set_B:= Set_B union {1};
+				}
+			}	 
+													
+			# STEP 3
+			let r:= 0;
+	
+			# STEP 4
+			let r:= r + 1; # Machine
+					
+			# STEP 5 - Select machine which is the r-th machine in Set_B
+			let f:= 0;
+			for{i in Set_B}{
+				let f:= f + 1;
+				if (f = r) then{
+					let machine_j:= i;
+				}
+			} 
+					
+			# STEP 6
+			let Set_Machines[k]:= Set_Machines[k] union {machine_j};
+			let ET[k]:= ET[L[machine_j]] + setup[L[machine_j],k] + quant[k]*p[k];	
+		}
+		
+		for{k in Set_A}{
+			# STEP 3 MAIN HEURISTIC- Calculate the weighted tardiness
+			let TARDINESS[k]:= W[k]*max(ET[k] - dd[k,tt],0);		
+		}	
+							
+		# STEP 4 MAIN HEURISTIC
+		let f:= 0;
+		for{k in Set_A}{
+			if (TARDINESS[k] = max{kk in Set_A} TARDINESS[kk]) then{
+				let i_star:= k;
+				let f:= f + 1;
+			}
+		}
+		
+		if (f > 1) then{
+			let i_star:= 0;
+			reset data Set_Repeated;
+			for{k in Set_A}{
+				if (TARDINESS[k] = max{kk in Set_A} TARDINESS[kk]) then{
+					let Set_Repeated:= Set_Repeated union {k}; 
+				}
+			}
+												
+			for{k in Set_Repeated}{
+				if (W[k] = max{kk in Set_Repeated} W[kk] and dd[k,tt] = min{kk in Set_Repeated} dd[kk,tt]) then{
+					let i_star:= k;					
+					break;
+				}
+			}
+						
+			if (card(Set_Repeated) != 0 and i_star = 0) then{
+				reset data Set_RepeatedII;
+				for{k in Set_Repeated}{
+					if (dd[k,tt] = min{kk in Set_Repeated} dd[kk,tt]) then{
+						let i_star:= k;
+						let Set_RepeatedII:= Set_RepeatedII union {k};
+					}
+				}
+				if (card(Set_RepeatedII) > 1) then{
+					for{k in Set_RepeatedII}{
+						if (W[k] = max{kk in Set_Repeated} W[kk]) then{
+							let i_star:= k;
+						}
+					}
+				}
+			}
+		}
+		
+		for{mm in Set_Machines[i_star]}{
+			let Final_Sequence[mm]:= Final_Sequence[mm] union {i_star}; 
+			let L[mm]:= i_star;
+		}
+				
+		# STEP 5 MAIN HEURISTIC
+		let Set_A:= Set_A diff {i_star};
+				
+		for{i in Set_A}{
+			let ET[i]:= 0;
+		}
+	} while(card(Set_A) != 0);	
+			
+	reset data q;
+	for{mm in M}{
+		for{i in Final_Sequence[mm]}{
+			let q[i,tt,mm]:= quant[i];
+		}
+	}
+	
+	let {mm in M} Cmax[mm]:= ET[L[mm]];
+	
+	let JS:= 0;
+	
+	# Calculates the tardiness
+	let Objective_Function:= 0;
+
+	for{i in J}{
+		let Objective_Function:=  Objective_Function + (W[i]*(max(ET[i] - dd[i,tt],0)));
+	}
+		
+	let Best_Objective_Function:= Objective_Function;
+	let {mm in M} Best_Sequence[mm]:= Final_Sequence[mm]; 
+	let {mm in M} Best_Cmax[mm]:= Cmax[mm];	
+	reset data Best_q;	
+	let {mm in M, j in J} Best_q[j,tt,mm]:= 0;
+	let {mm in M, j in Best_Sequence[mm]} Best_q[j,tt,mm]:= q[j,tt,mm];
+			
+	let Capacity:= 1;
+		
+	if (Cmax[1] <= K[1,tt] and Cmax[2] <= K[2,tt]) then{
+		let Best_Objective_Function_Capacity:= Objective_Function;
+		let {mm in M} Best_Sequence_Capacity[mm]:= Final_Sequence[mm]; 
+		let {mm in M} Best_Cmax_Capacity[mm]:= Cmax[mm];
+		reset data Best_q_Capacity;
+		let {mm in M, j in J} Best_q_Capacity[j,tt,mm]:= 0;
+		let {mm in M, j in Best_Sequence_Capacity[mm]} Best_q_Capacity[j,tt,mm]:= q[j,tt,mm];	
+		let Capacity:= 0;
+	}
+			
+	# Job Splitting
+	if (Cmax[1] > K[1,tt] or Cmax[2] > K[2,tt]) then{
+		if (ET[L[1]] - p[L[1]]*q[L[1],tt,1] < K[1,tt] and ET[L[2]] - p[L[2]]*q[L[2],tt,2] < K[2,tt] and L[1] != L[2]) then{					
+			if (ET[L[1]] < K[1,tt] and ET[L[2]] > K[2,tt] and L[2] not in Final_Sequence[1]) then{
+				let q[L[2],tt,1]:= (ET[L[2]] - K[2,tt])/p[L[2]];	
+				let Final_Sequence[1]:= Final_Sequence[1] union {L[2]}; 
+				let q[L[2],tt,2]:= q[L[2],tt,2] - (ET[L[2]] - K[2,tt])/p[L[2]];
+							
+				let Cmax[1]:= ET[L[1]] + setup[L[1],L[2]] + q[L[2],tt,1]*p[L[2]];
+				let Cmax[2]:= K[2,tt];
+				
+				let L[1]:= L[2]; 
+				let JS:= 1;
+				
+				let ET[L[2]]:= max(Cmax[1], Cmax[2]);
+			} else{			
+				if (ET[L[1]] > K[1,tt] and ET[L[2]] < K[2,tt] and L[1] not in Final_Sequence[2]) then{				
+					let q[L[1],tt,2]:= (ET[L[1]] - K[1,tt])/p[L[1]];	
+					let Final_Sequence[2]:= Final_Sequence[2] union {L[1]};
+					let q[L[1],tt,1]:= q[L[1],tt,1] - (ET[L[1]] - K[1,tt])/p[L[1]];
+							
+					let Cmax[1]:= K[1,tt];
+					let Cmax[2]:= ET[L[2]] + setup[L[2],L[1]] + q[L[1],tt,2]*p[L[1]];
+					let L[2]:= L[1]; 
+					let JS:= 1; 
+					
+					let ET[L[2]]:= max(Cmax[1], Cmax[2]);
+				}
+			}
+			
+			if (JS = 1) then{			
+				if (Cmax[1] < Cmax[2]) then{				
+					if (((Cmax[2] - Cmax[1])/2)/p[L[2]] < q[L[2],tt,2]) then{
+						let q[L[2],tt,1]:= q[L[2],tt,1] + ((Cmax[2] - Cmax[1])/2)/p[L[2]];
+						let q[L[2],tt,2]:= q[L[2],tt,2] - ((Cmax[2] - Cmax[1])/2)/p[L[2]];
+					
+						let aux:= ((Cmax[2] - Cmax[1])/2);
+						let Cmax[2]:= Cmax[2] - ((Cmax[2] - Cmax[1])/2);
+						let Cmax[1]:= Cmax[1] + aux;
+						
+						let ET[L[2]]:= max(Cmax[1], Cmax[2]);
+					}	
+				} else{
+					if (((Cmax[1] - Cmax[2])/2)/p[L[1]] < q[L[1],tt,1]) then{
+						let q[L[1],tt,2]:= q[L[1],tt,2] + ((Cmax[1] - Cmax[2])/2)/p[L[1]];
+						let q[L[1],tt,1]:= q[L[1],tt,1] - ((Cmax[1] - Cmax[2])/2)/p[L[1]];
+						
+						let aux:= ((Cmax[1] - Cmax[2])/2);
+						let Cmax[1]:= Cmax[1] - ((Cmax[1] - Cmax[2])/2);					
+						let Cmax[2]:= Cmax[2] + aux;
+						
+						let ET[L[1]]:= max(Cmax[1],Cmax[2]);	
+					}	
+				}
+			}
+		}
+	}
+			
+	# Calculates the tardiness
+	let Objective_Function:= 0;
+
+	for{i in J}{
+		let Objective_Function:=  Objective_Function + (W[i]*(max(ET[i] - dd[i,tt],0)));
+	}
+			
+	let Capacity:= 1;
+	
+	if (Objective_Function < Best_Objective_Function) then{
+		let Best_Objective_Function:= Objective_Function;
+		let {mm in M} Best_Sequence[mm]:= Final_Sequence[mm]; 
+		reset data Best_q;
+		let {t in tt..tt, mm in M, j in Best_Sequence[mm]} Best_q[j,t,mm]:= q[j,t,mm];
+		let {mm in M} Best_Cmax[mm]:= Cmax[mm];
+	}
+
+	if (Cmax[1] <= K[1,tt] and Cmax[2] <= K[2,tt] and Objective_Function < Best_Objective_Function_Capacity) then{
+		let Best_Objective_Function_Capacity:= Objective_Function;
+		let {mm in M} Best_Sequence_Capacity[mm]:= Final_Sequence[mm]; 
+		reset data Best_q_Capacity;	
+		let {t in tt..tt, mm in M, j in Best_Sequence_Capacity[mm]} Best_q_Capacity[j,t,mm]:= q[j,t,mm];	
+		let {mm in M} Best_Cmax_Capacity[mm]:= Cmax[mm];
+		let Capacity:= 0;
+	}
+	
+	let {mm in M, j in Best_Sequence[mm]} q_LS[j,tt,mm]:= Best_q[j,tt,mm];
+	
+	let {mm in M} Final_Sequence_LS[mm]:= Best_Sequence[mm];
+	
+	let iteration:= 1;
+	
+	# Local search for each machine
+	for{MM in M}{
+		for{kk in 1..card(Final_Sequence_LS[MM])}{
+			for{jj in 1..card(Final_Sequence_LS[MM]): kk != jj and kk < jj}{
+				let iteration:= iteration + 1;
+			
+				if (iteration < 2000) then{
+					reset data Sequence;
+
+					for{mm in M}{
+						let cont:= 1;
+						for{ll in Final_Sequence_LS[mm]}{
+							let Sequence[mm,cont]:= ll;
+							let cont:= cont + 1;
+						}
+					}
+					
+					reset data index;
+					# Definition of indexes of the sequence
+					for{mm in M}{
+						let f:= 1;
+						for{j in Final_Sequence_LS[mm]}{
+							let index[mm,j]:= f;
+							let f:= f + 1;
+						}
+					}
+									
+					let aux_Sequence:= Sequence[MM,kk];
+					let Sequence[MM,kk]:= Sequence[MM,jj];
+					let Sequence[MM,jj]:= aux_Sequence;
+					
+					let aux_Index:= index[MM,Sequence[MM,kk]];
+					let index[MM,Sequence[MM,kk]]:= index[MM,Sequence[MM,jj]];
+					let index[MM,Sequence[MM,jj]]:= aux_Index;
+
+					reset data aux_q;
+					let {t in tt..tt, mm in M, j in J} aux_q[j,t,mm]:= 0;
+					let {t in tt..tt, mm in M, j in Final_Sequence_LS[mm]} aux_q[j,t,mm]:= q_LS[j,t,mm];
+					
+					let {mm in M,i in 0..card(J)} ET_LS[mm,i]:= 0;
+					let {mm in M} cc[mm]:= 0;
+					
+					for{MMM in M}{
+						for{j in J: aux_q[j,tt,MMM] != 0}{						
+							let ET_LS[MMM,j]:= setup[0,Sequence[MMM,1]] + sum{i in 1..index[MMM,j]-1} setup[Sequence[MMM,i],Sequence[MMM,i+1]] + sum{i in 1..index[MMM,j]} (p[Sequence[MMM,i]]*aux_q[Sequence[MMM,i],tt,MMM]);
+							let cc[MMM]:= cc[MMM] + 1;
+						}
+						
+						for{j in J: aux_q[j,tt,MMM] != 0}{
+							if (ET_LS[MMM,j] = max{xx in J: aux_q[xx,tt,MMM] != 0} ET_LS[MMM,xx]) then{
+								let L_LS[MMM]:= j; 
+							}	
+						}
+					}
+										
+					reset data Final_Sequence_LSIV;
+					for{mm in M}{
+						for{ii in 1..cc[mm]}{
+							let Final_Sequence_LSIV[mm]:= Final_Sequence_LSIV[mm] union {Sequence[mm,ii]};
+						}
+					} 
+					
+					let {mm in M} Cmax_LS[mm]:= ET_LS[mm,L_LS[mm]];
+									
+										
+					include "/Job_Splitting.txt";															
+										
+					for{machine in M: MM != machine and machine > MM}{
+						for{nn in 1..card(Final_Sequence_LSIV[machine])}{
+							for{pp in 1..card(Final_Sequence_LSIV[machine]): nn != pp and nn < pp}{
+								let iteration:= iteration + 1;
+								
+								if (iteration < 2000) then{
+							
+									reset data Sequence;
+									for{mm in M}{
+										let cont:= 1;
+										for{ll in Final_Sequence_LSIV[mm]}{
+											let Sequence[mm,cont]:= ll;
+											let cont:= cont + 1;
+										}
+									}
+									
+									reset data index;
+									# Definition of indexes of the sequence
+									for{mm in M}{
+										let f:= 1;
+										for{j in Final_Sequence_LSIV[mm]}{
+											let index[mm,j]:= f;
+											let f:= f + 1;
+										}
+									}
+									
+									reset data aux_q;
+									let {t in tt..tt, mm in M, j in J} aux_q[j,t,mm]:= 0;
+									let {t in tt..tt, mm in M, j in Final_Sequence_LSIV[mm]} aux_q[j,t,mm]:= q_LS[j,t,mm];
+
+									let aux_Sequence:= Sequence[machine,nn];
+									let Sequence[machine,nn]:= Sequence[machine,pp];
+									let Sequence[machine,pp]:= aux_Sequence;
+									
+									let aux_Index:= index[machine,Sequence[machine,nn]];
+									let index[machine,Sequence[machine,nn]]:= index[machine,Sequence[machine,pp]];
+									let index[machine,Sequence[machine,pp]]:= aux_Index;
+									
+									let {mm in M,i in 0..card(J)} ET_LS[mm,i]:= 0;
+									let {mm in M} cc[mm]:= 0;
+											
+									for{MACHINE in M}{
+										for{j in J: aux_q[j,tt,MACHINE] != 0}{
+											let ET_LS[MACHINE,j]:= setup[0,Sequence[MACHINE,1]] + sum{i in 1..index[MACHINE,j]-1} setup[Sequence[MACHINE,i],Sequence[MACHINE,i+1]] + sum{i in 1..index[MACHINE,j]} (p[Sequence[MACHINE,i]]*aux_q[Sequence[MACHINE,i],tt,MACHINE]);
+											let cc[MACHINE]:= cc[MACHINE] + 1;
+										}
+										
+										for{j in J: aux_q[j,tt,MACHINE] != 0}{
+											if (ET_LS[MACHINE,j] = max{xx in J: aux_q[xx,tt,MACHINE] != 0} ET_LS[MACHINE,xx]) then{
+												let L_LS[MACHINE]:= j; 
+											}	
+										}
+									}
+									
+									let {mm in M} Cmax_LS[mm]:= ET_LS[mm,L_LS[mm]];
+									
+									include "/Job_Splitting.txt";
+								}	
+							}
+						}
+					}	
+				}
+			}	
+		}
+	}
+		
+	# Local Search before the job splitting			
+	for{k in Final_Sequence_LS[1]}{
+		for{l in Final_Sequence_LS[2]}{
+			let iteration:= iteration + 1;
+			
+			if (iteration < 2000) then{
+			
+				reset data Sequence;
+				for{mm in M}{
+					let cont:= 1;
+					for{kk in Final_Sequence_LS[mm]}{
+						let Sequence[mm,cont]:= kk;
+						let cont:= cont + 1;
+					}
+				}
+
+				reset data index;
+				# Definition of indexes of the sequence
+				for{mm in M}{
+					let f:= 1;
+					for{j in Final_Sequence_LS[mm]}{
+						let index[mm,j]:= f;
+						let f:= f + 1;
+					}
+				}
+				reset data aux_q;
+				let {j in J, t in tt..tt, mm in M} aux_q[j,t,mm]:= 0;
+				let {t in tt..tt, mm in M, j in Final_Sequence_LS[mm]} aux_q[j,t,mm]:= q_LS[j,t,mm];
+										
+				if (k != l and (k not in Final_Sequence_LS[2] and l not in Final_Sequence_LS[1])) then{
+					let aux_sequence:= Sequence[1,index[1,k]];
+					let Sequence[1,index[1,k]]:= Sequence[2,index[2,l]];
+					let Sequence[2,index[2,l]]:= aux_sequence; 
+					let aux_q[k,tt,2]:= aux_q[k,tt,1];
+					let aux_q[l,tt,1]:= aux_q[l,tt,2];
+					let aux_q[l,tt,2]:= 0;
+					let aux_q[k,tt,1]:= 0;
+					let index[1,l]:= index[1,k];
+					let index[2,k]:= index[2,l];
+					let index[1,k]:= 0;
+					let index[2,l]:= 0;
+				}
+				
+				let {mm in M,i in 0..card(J)} ET_LS[mm,i]:= 0;
+				let {mm in M} cc[mm]:= 0;
+				
+				for{mm in M}{
+					for{j in J: aux_q[j,tt,mm] != 0}{
+						let ET_LS[mm,j]:= setup[0,Sequence[mm,1]] + sum{i in 1..index[mm,j]-1} setup[Sequence[mm,i],Sequence[mm,i+1]] + sum{i in 1..index[mm,j]} (p[Sequence[mm,i]]*aux_q[Sequence[mm,i],tt,mm]);
+						let cc[mm]:= cc[mm] + 1;
+					}
+					
+					for{j in J: aux_q[j,tt,mm] != 0}{
+						if (ET_LS[mm,j] = max{jj in J: aux_q[jj,tt,mm] != 0} ET_LS[mm,jj]) then{
+							let L_LS[mm]:= j; 
+						}	
+					}
+				}
+				
+				reset data Final_Sequence_LSIII;
+				for{mm in M}{
+					for{ii in 1..cc[mm]}{
+						let Final_Sequence_LSIII[mm]:= Final_Sequence_LSIII[mm] union {Sequence[mm,ii]};
+					}
+				} 
+				
+				reset data aux_q_LS;
+				let {j in J, t in tt..tt, mm in M} aux_q_LS[j,t,mm]:= 0;
+				let {t in tt..tt, mm in M, j in Final_Sequence_LSIII[mm]} aux_q_LS[j,t,mm]:= aux_q[j,t,mm];
+				
+				let {mm in M} Cmax_LS[mm]:= ET_LS[mm,L_LS[mm]];
+															
+				include "/Job_Splitting.txt";
+								
+				# Local search for each machine
+				for{MM in M}{
+					for{kk in 1..card(Final_Sequence_LSIII[MM])}{
+						for{jj in 1..card(Final_Sequence_LSIII[MM]): kk != jj and kk < jj}{
+							let iteration:= iteration + 1;
+				
+							if (iteration < 2000) then{
+						
+								reset data Sequence;
+								for{mm in M}{
+									let cont:= 1;
+									for{ll in Final_Sequence_LSIII[mm]}{
+										let Sequence[mm,cont]:= ll;
+										let cont:= cont + 1;
+									}
+								}
+								
+								reset data index;
+								# Definition of indexes of the sequence
+								for{mm in M}{
+									let f:= 1;
+									for{j in Final_Sequence_LSIII[mm]}{
+										let index[mm,j]:= f;
+										let f:= f + 1;
+									}
+								}
+							
+								let aux_Sequence:= Sequence[MM,kk];
+								let Sequence[MM,kk]:= Sequence[MM,jj];
+								let Sequence[MM,jj]:= aux_Sequence;
+								
+								let aux_Index:= index[MM,Sequence[MM,kk]];
+								let index[MM,Sequence[MM,kk]]:= index[MM,Sequence[MM,jj]];
+								let index[MM,Sequence[MM,jj]]:= aux_Index;
+										
+								reset data aux_q;
+								let {j in J, t in tt..tt, mm in M} aux_q[j,t,mm]:= 0;
+								let {t in tt..tt, mm in M, j in Final_Sequence_LSIII[mm]} aux_q[j,t,mm]:= aux_q_LS[j,t,mm];
+								
+								let {mm in M,i in 0..card(J)} ET_LS[mm,i]:= 0;
+								let {mm in M} cc[mm]:= 0;
+								
+								for{MMM in M}{
+									for{j in J: aux_q[j,tt,MMM] != 0}{
+										let ET_LS[MMM,j]:= setup[0,Sequence[MMM,1]] + sum{i in 1..index[MMM,j]-1} setup[Sequence[MMM,i],Sequence[MMM,i+1]] + sum{i in 1..index[MMM,j]} (p[Sequence[MMM,i]]*aux_q[Sequence[MMM,i],tt,MMM]);
+										let cc[MMM]:= cc[MMM] + 1;
+									}
+									
+									for{j in J: aux_q[j,tt,MMM] != 0}{
+										if (ET_LS[MMM,j] = max{xx in J: aux_q[xx,tt,MMM] != 0} ET_LS[MMM,xx]) then{
+											let L_LS[MMM]:= j; 
+										}	
+									}
+								}
+								
+								reset data Final_Sequence_LSIV;
+								for{mm in M}{
+									for{ii in 1..cc[mm]}{
+										let Final_Sequence_LSIV[mm]:= Final_Sequence_LSIV[mm] union {Sequence[mm,ii]};
+									}
+								} 
+								
+								let {mm in M} Cmax_LS[mm]:= ET_LS[mm,L_LS[mm]];
+																							
+								include "/Job_Splitting.txt";
+																															
+								for{machine in M: MM != machine and machine > MM}{
+									for{nn in 1..card(Final_Sequence_LSIV[machine])}{
+										for{pp in 1..card(Final_Sequence_LSIV[machine]): nn != pp and nn < pp}{
+											let iteration:= iteration + 1;
+					
+											if (iteration < 2000) then{
+												reset data Sequence;
+												for{mm in M}{
+													let cont:= 1;
+													for{ll in Final_Sequence_LSIV[mm]}{
+														let Sequence[mm,cont]:= ll;
+														let cont:= cont + 1;
+													}
+												}
+												
+												reset data index;
+												# Definition of indexes of the sequence
+												for{mm in M}{
+													let f:= 1;
+													for{j in Final_Sequence_LSIV[mm]}{
+														let index[mm,j]:= f;
+														let f:= f + 1;
+													}
+												}
+																							
+												let aux_Sequence:= Sequence[machine,nn];
+												let Sequence[machine,nn]:= Sequence[machine,pp];
+												let Sequence[machine,pp]:= aux_Sequence;
+												
+												let aux_Index:= index[machine,Sequence[machine,nn]];
+												let index[machine,Sequence[machine,nn]]:= index[machine,Sequence[machine,pp]];
+												let index[machine,Sequence[machine,pp]]:= aux_Index;
+												
+												let {mm in M,i in 0..card(J)} ET_LS[mm,i]:= 0;
+												let {mm in M} cc[mm]:= 0;
+												
+												reset data aux_q;
+												let {j in J, t in tt..tt, mm in M} aux_q[j,t,mm]:= 0;
+												let {t in tt..tt, mm in M, j in Final_Sequence_LSIV[mm]} aux_q[j,t,mm]:= aux_q_LS[j,t,mm];
+																								
+												for{MACHINE in M}{
+													for{j in J: aux_q[j,tt,MACHINE] != 0}{
+														let ET_LS[MACHINE,j]:= setup[0,Sequence[MACHINE,1]] + sum{i in 1..index[MACHINE,j]-1} setup[Sequence[MACHINE,i],Sequence[MACHINE,i+1]] + sum{i in 1..index[MACHINE,j]} (p[Sequence[MACHINE,i]]*aux_q[Sequence[MACHINE,i],tt,MACHINE]);
+														let cc[MACHINE]:= cc[MACHINE] + 1;
+													}
+													
+													for{j in J: aux_q[j,tt,MACHINE] != 0}{
+														if (ET_LS[MACHINE,j] = max{xx in J: aux_q[xx,tt,MACHINE] != 0} ET_LS[MACHINE,xx]) then{
+															let L_LS[MACHINE]:= j; 
+														}	
+													}
+												}
+												
+												let {mm in M} Cmax_LS[mm]:= ET_LS[mm,L_LS[mm]];
+												
+												include "/Job_Splitting.txt";
+											}	
+										}
+									}
+								}
+							}		
+						}	
+					}
+				}
+			}
+		}
+	}
+			
+	if (Capacity = 0) then{
+		let Final_Objective_Function:= Best_Objective_Function_Capacity;
+		let {mm in M} Final_Cmax[mm]:= Best_Cmax_Capacity[mm];
+		let {mm in M} contador[mm]:= card(Best_Sequence_Capacity[mm]);
+		reset data q;
+		let {j in J, mm in M} q[j,tt,mm]:= 0;
+		let {mm in M, j in Best_Sequence_Capacity[mm]} q[j,tt,mm]:= Best_q_Capacity[j,tt,mm];
+		
+		let {mm in M} Set_Jobs[mm]:= Best_Sequence_Capacity[mm];
+		
+		reset data pos; 
+		
+		for{mm in M}{
+			let f:= 1;
+			for{i in Best_Sequence_Capacity[mm]}{
+				let pos[mm,f,tt]:= i;
+				let f:= f + 1;
+			}	
+		}	
+	} else{
+		let Final_Objective_Function:= Best_Objective_Function;
+		let {mm in M} Final_Cmax[mm]:= Best_Cmax[mm];
+		let Capacity:= 1;
+		let {mm in M} contador[mm]:= card(Best_Sequence[mm]);
+		reset data q;
+		let {j in J, mm in M} q[j,tt,mm]:= 0;
+		let {mm in M, j in Best_Sequence[mm]} q[j,tt,mm]:= Best_q[j,tt,mm];
+		
+		let {mm in M} Set_Jobs[mm]:= Best_Sequence[mm];
+		
+		reset data pos; 
+		
+		for{mm in M}{
+			let f:= 1;
+			for{i in Best_Sequence[mm]}{
+				let pos[mm,f,tt]:= i;
+				let f:= f + 1;
+			}	
+		}
+	}
+}
+
+let {mm in M} K[mm,tt]:= Original_Capacity;
+
+# Considering the predicted failures
+
+reset data Cjs, index;
+
+for{i in 1..contador[MFailure]}{
+	let Cjs[MFailure]:= Cjs[MFailure] union {pos[MFailure,i,tt]};
+}
+
+# Definition of indexes of the sequence pos
+let f:= 1;
+for{j in Cjs[MFailure]}{
+	let index[MFailure,j]:= f;
+	let f:= f + 1;
+}
+		
+reset data CT;
+# Completion times
+let {j in Cjs[MFailure]} CT[MFailure,j]:= trunc(setup[0,pos[MFailure,1,tt]] + sum{i in 1..index[MFailure,j]-1} setup[pos[MFailure,i,tt],pos[MFailure,i+1,tt]] + sum{i in 1..index[MFailure,j]} (p[pos[MFailure,i,tt]]*q[pos[MFailure,i,tt],tt,MFailure]),4);
+
+reset data Failures_1;
+repeat{
+	for{i in Set_Moment_Failures_1}{
+		if (i == min{k in Set_Moment_Failures_1} k) then{
+			let Failures_1:= Failures_1 union {i};
+			let Set_Moment_Failures_1:= Set_Moment_Failures_1 diff {i};
+		}
+	}
+} while (card(Set_Moment_Failures_1) != 0);
+
+let Set_Moment_Failures_1:= Failures_1;
+
+reset data Failures_2;
+repeat{
+	for{i in Set_Moment_Failures_2}{
+		if (i == min{k in Set_Moment_Failures_2} k) then{
+			let Failures_2:= Failures_2 union {i};
+			let Set_Moment_Failures_2:= Set_Moment_Failures_2 diff {i};
+		}
+	}
+} while (card(Set_Moment_Failures_2) != 0);
+
+let Set_Moment_Failures_2:= Failures_2;
+
+if(MFailure = 1) then{
+	for{subperiod in Set_Moment_Failures_1}{
+		for{j in Cjs[MFailure]}{
+			if(subperiod <= CT[MFailure,j]) then{
+				let CT[MFailure,j]:= CT[MFailure,j] + 1;
+			}	
+		}
+	}
+} else{
+	for{subperiod in Set_Moment_Failures_2}{
+		for{j in Cjs[MFailure]}{
+			if(subperiod <= CT[MFailure,j]) then{
+				let CT[MFailure,j]:= CT[MFailure,j] + 1;
+			}	
+		}
+	}
+}
+
+let {j in Cjs[MFailure]} CT_II[MFailure,j]:= CT[MFailure,j];
+let novo_makespan[MFailure]:= max{j in Cjs[MFailure]} (CT[MFailure,j]);
+
+let idle[MFailure]:= max(0,K[MFailure,tt] - novo_makespan[MFailure]);
+
+# Calculates the tardiness after the failure
+if(MFailure = 2) then{
+	let OF_Tardiness:= 0;
+
+	for{j in J}{
+		if(j in Set_Jobs[1] and j not in Set_Jobs[2]) then{
+			let CT_Machines[j]:= CT_II[1,j];
+		} else{
+			if(j in Set_Jobs[2] and j not in Set_Jobs[1]) then{
+				let CT_Machines[j]:= CT_II[2,j];
+			} else{
+				if(j in Set_Jobs[1] and j in Set_Jobs[2]) then{
+					let CT_Machines[j]:= max(CT_II[1,j],CT_II[2,j]);
+				}
+			}
+		}
+	}
+
+	for{i in J}{
+		if(i in Set_Jobs[1] || i in Set_Jobs[2]) then{
+			let OF_Tardiness:=  OF_Tardiness + (W[i]*(max(CT_Machines[i] - dd[i,tt],0)));
+		}
+	}
+}
+
+# Calculates the additional OF due to the failure (jobs backordered)
+if(MFailure = 1) then{
+	let Additional_OF:= 0;
+}
+	
+if (novo_makespan[MFailure] > Original_Capacity + 0.05) then{		
+	let Jobs:= 0;
+	
+	if (card(Cjs[MFailure]) > 1) then{		
+		for{j in Cjs[MFailure]: CT[MFailure,j] > Original_Capacity + 0.05}{
+			let Jobs:= Jobs + 1;
+				
+			if (Jobs = 1 and index[MFailure,j] != 1) then{
+				# During processing
+				if (CT[MFailure,pos[MFailure,index[MFailure,j]-1,tt]] + setup[pos[MFailure,index[MFailure,j]-1,tt],j] < Original_Capacity) then{
+					let Additional_OF:= Additional_OF + ((CT[MFailure,j] - Original_Capacity)/p[j]);
+				} else{
+					# During setup
+					let Additional_OF:= Additional_OF + q[j,tt,MFailure];
+				}
+			} else{
+				if (Jobs != 1) then{
+					let Additional_OF:= Additional_OF + q[j,tt,MFailure];
+				} else{
+					if (index[MFailure,j] = 1) then{						
+						let Additional_OF:= Additional_OF + ((CT[MFailure,j] - Original_Capacity)/p[j]);						
+					}
+				}
+			}
+		}
+	} else{
+		let Additional_OF:= Additional_OF + ((CT[MFailure,pos[MFailure,1,tt]] - Original_Capacity)/p[pos[MFailure,1,tt]]);
+	}	
+}
+
+# Considering the results obtained with the reference
+reset data Cjs, index;
+
+for{i in 1..contador[MFailure]}{
+	let Cjs[MFailure]:= Cjs[MFailure] union {pos[MFailure,i,tt]};
+}
+
+# Definition of indexes of the sequence pos
+let f:= 1;
+for{j in Cjs[MFailure]}{
+	let index[MFailure,j]:= f;
+	let f:= f + 1;
+}
+		
+reset data CT;
+# Completion times
+let {j in Cjs[MFailure]} CT[MFailure,j]:= trunc(setup[0,pos[MFailure,1,tt]] + sum{i in 1..index[MFailure,j]-1} setup[pos[MFailure,i,tt],pos[MFailure,i+1,tt]] + sum{i in 1..index[MFailure,j]} (p[pos[MFailure,i,tt]]*q[pos[MFailure,i,tt],tt,MFailure]),4);
+	
+if(MFailure = 1) then{
+	for{subperiod in Set_Reference_Failures_1}{
+		for{j in Cjs[MFailure]}{
+			if(subperiod <= CT[MFailure,j]) then{
+				let CT[MFailure,j]:= CT[MFailure,j] + 1;
+			}	
+		}
+	}
+} else{
+	for{subperiod in Set_Reference_Failures_2}{
+		for{j in Cjs[MFailure]}{
+			if(subperiod <= CT[MFailure,j]) then{
+				let CT[MFailure,j]:= CT[MFailure,j] + 1;
+			}	
+		}
+	}
+}
+
+let {j in Cjs[MFailure]} CT_II_reference[MFailure,j]:= CT[MFailure,j];
+let novo_makespan_reference[MFailure]:= max{j in Cjs[MFailure]} (CT[MFailure,j]);
+
+let idle_reference[MFailure]:= round(max(0,K[MFailure,tt] - novo_makespan_reference[MFailure]),2);
+
+# Calculates the tardiness after the failure
+if(MFailure = 2) then{
+	let OF_Tardiness_reference:= 0;
+
+	for{j in J}{
+		if(j in Set_Jobs[1] and j not in Set_Jobs[2]) then{
+			let CT_Machines[j]:= CT_II_reference[1,j];
+		} else{
+			if(j in Set_Jobs[2] and j not in Set_Jobs[1]) then{
+				let CT_Machines[j]:= CT_II_reference[2,j];
+			} else{
+				if(j in Set_Jobs[1] and j in Set_Jobs[2]) then{
+					let CT_Machines[j]:= max(CT_II_reference[1,j],CT_II_reference[2,j]);
+				}
+			}
+		}
+	}
+
+	for{i in J}{
+		if(i in Set_Jobs[1] || i in Set_Jobs[2]) then{
+			let OF_Tardiness_reference:=  OF_Tardiness_reference + (W[i]*(max(CT_Machines[i] - dd[i,tt],0)));
+		}
+	}
+}
+
+# Calculates the additional OF due to the failure (jobs backordered)
+if(MFailure = 1) then{
+	let Additional_OF_reference:= 0;
+}
+
+if (novo_makespan_reference[MFailure] > Original_Capacity + 0.05) then{		
+	let Jobs:= 0;
+	
+	if (card(Cjs[MFailure]) > 1) then{		
+		for{j in Cjs[MFailure]: CT[MFailure,j] > Original_Capacity + 0.05}{
+			let Jobs:= Jobs + 1;
+				
+			if (Jobs = 1 and index[MFailure,j] != 1) then{
+				# During processing
+				if (CT[MFailure,pos[MFailure,index[MFailure,j]-1,tt]] + setup[pos[MFailure,index[MFailure,j]-1,tt],j] < Original_Capacity) then{
+					let Additional_OF_reference:= Additional_OF_reference + ((CT[MFailure,j] - Original_Capacity)/p[j]);
+				} else{
+					# During setup
+					let Additional_OF_reference:= Additional_OF_reference + q[j,tt,MFailure];
+				}
+			} else{
+				if (Jobs != 1) then{
+					let Additional_OF_reference:= Additional_OF_reference + q[j,tt,MFailure];
+				} else{
+					if (index[MFailure,j] = 1) then{						
+						let Additional_OF_reference:= Additional_OF_reference + ((CT[MFailure,j] - Original_Capacity)/p[j]);						
+					}
+				}
+			}
+		}
+	} else{
+		let Additional_OF_reference:= Additional_OF_reference + ((CT[MFailure,pos[MFailure,1,tt]] - Original_Capacity)/p[pos[MFailure,1,tt]]);
+	}	
+}
+
+if (MFailure == 2) then{
+	let OF:= OF + A;
+	let total_add_of:= total_add_of + Additional_OF;
+	let total_tardiness:= total_tardiness + Final_Objective_Function;
+	let total_of_tard:= total_of_tard + OF_Tardiness;
+	let total_idle:= total_idle + idle[1] + idle[2];
+	let total_add_of_reference:= total_add_of_reference + Additional_OF_reference;
+	let total_of_tard_reference:= total_of_tard_reference + OF_Tardiness_reference;
+	let total_idle_reference:= total_idle_reference + idle_reference[1] + idle_reference[2];
+}
+
+if (MFailure = 2 and tt = 2) then{ 
+	let tempo:= _ampl_time + _total_solve_time - tempo;
+	printf "%4.2f, %4.2f, %4.2f, %4.2f, %4.2f, %4.2f, %4.2f, %4.2f, %4.2f, %4.2f, %4.2f \n", n, v, OF, total_tardiness, total_add_of, total_of_tard, total_idle, total_add_of_reference, total_of_tard_reference, total_idle_reference, tempo  >> /ResultPMLINST_F2.txt;
+}
+
+let {mm in M} K[mm,tt]:= K[mm,tt] - DFailure[mm]; 

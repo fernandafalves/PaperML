@@ -1,0 +1,135 @@
+reset data Final_Sequence_LSII, CT;
+
+for{mm in M}{
+	for{ii in 1..cc[mm]}{
+		let Final_Sequence_LSII[mm]:= Final_Sequence_LSII[mm] union {Sequence[mm,ii]};
+	}
+	
+	# Completion times
+	let {j in Final_Sequence_LSII[mm]} CT[mm,j]:= trunc(setup[0,Sequence[mm,1]] + sum{i in 1..index[mm,j]-1} setup[Sequence[mm,i],Sequence[mm,i+1]] + sum{i in 1..index[mm,j]} (p[Sequence[mm,i]]*aux_q[Sequence[mm,i],tt,mm]),4);
+	
+	if(mm = 1) then{
+		for{subperiod in Set_Moment_Failures_1}{
+			for{job in Final_Sequence_LSII[mm]}{
+				if(subperiod <= CT[mm,job]) then{
+					let CT[mm,job]:= CT[mm,job] + 1;
+				}	
+			}
+		}
+	} else{
+		for{subperiod in Set_Moment_Failures_2}{
+			for{job in Final_Sequence_LSII[mm]}{
+				if(subperiod <= CT[mm,job]) then{
+					let CT[mm,job]:= CT[mm,job] + 1;
+				}	
+			}
+		}
+	}
+	
+	let Cmax_LS[mm]:= max{j in Final_Sequence_LSII[mm]} (CT[mm,j]);
+	let {j in Final_Sequence_LSII[mm]} ET_LS[mm,j]:= CT[mm,j];
+} 
+
+let JS:= 0;
+
+# Job Splitting
+if (Cmax_LS[1] > K[1,tt] or Cmax_LS[2] > K[2,tt]) then{
+	if (ET_LS[1,L_LS[1]] - p[L_LS[1]]*aux_q[L_LS[1],tt,1] < K[1,tt] and ET_LS[2,L_LS[2]] - p[L_LS[2]]*aux_q[L_LS[2],tt,2] < K[2,tt] and L_LS[1] != L_LS[2]) then{
+		if (ET_LS[1,L_LS[1]] < K[1,tt] and ET_LS[2,L_LS[2]] > K[2,tt] and L_LS[2] not in Final_Sequence_LSII[1]) then{
+			let counter_failures:= 0;
+			for{subperiod in Set_Moment_Failures_1}{
+				if(subperiod > ET_LS[1,L_LS[1]]) then{
+					let counter_failures:= counter_failures + 1;
+				}
+			}
+		
+			let aux_q[L_LS[2],tt,1]:= (ET_LS[2,L_LS[2]] - K[2,tt])/p[L_LS[2]];	
+			let Final_Sequence_LSII[1]:= Final_Sequence_LSII[1] union {L_LS[2]}; 
+			let aux_q[L_LS[2],tt,2]:= aux_q[L_LS[2],tt,2] - (ET_LS[2,L_LS[2]] - K[2,tt])/p[L_LS[2]];
+			let ET_LS[2,L_LS[2]]:= K[2,tt];   
+			
+			let Cmax_LS[1]:= ET_LS[1,L_LS[1]] + setup[L_LS[1],L_LS[2]] + aux_q[L_LS[2],tt,1]*p[L_LS[2]] + counter_failures;
+			let Cmax_LS[2]:= K[2,tt];
+			let L_LS[1]:= L_LS[2]; 
+			let ET_LS[1,L_LS[1]]:= Cmax_LS[1]; 
+			let JS:= 1;
+		} else{
+			if (ET_LS[1,L_LS[1]] > K[1,tt] and ET_LS[2,L_LS[2]] < K[2,tt] and L_LS[1] not in Final_Sequence_LSII[2]) then{
+				let counter_failures:= 0;
+				for{subperiod in Set_Moment_Failures_2}{
+					if(subperiod > ET_LS[2,L_LS[2]]) then{
+						let counter_failures:= counter_failures + 1;
+					}
+				}
+							
+				let aux_q[L_LS[1],tt,2]:= (ET_LS[1,L_LS[1]] - K[1,tt])/p[L_LS[1]];			
+				let Final_Sequence_LSII[2]:= Final_Sequence_LSII[2] union {L_LS[1]};
+				let aux_q[L_LS[1],tt,1]:= aux_q[L_LS[1],tt,1] - (ET_LS[1,L_LS[1]] - K[1,tt])/p[L_LS[1]];
+				let ET_LS[1,L_LS[1]]:= K[1,tt];  
+		
+				let Cmax_LS[1]:= K[1,tt];
+				let Cmax_LS[2]:= ET_LS[2,L_LS[2]] + setup[L_LS[2],L_LS[1]] + aux_q[L_LS[1],tt,2]*p[L_LS[1]] + counter_failures;
+				let L_LS[2]:= L_LS[1]; 
+				let ET_LS[2,L_LS[2]]:= Cmax_LS[2]; 
+				let JS:= 1;
+			}
+		}
+				
+		# If job splitting was performed
+		if (JS = 1) then{	
+			if (Cmax_LS[1] < Cmax_LS[2]) then{						
+				if (((Cmax_LS[2] - Cmax_LS[1])/2)/p[L_LS[2]] < aux_q[L_LS[2],tt,2]) then{
+					let aux_q[L_LS[2],tt,1]:= aux_q[L_LS[2],tt,1] + ((Cmax_LS[2] - Cmax_LS[1])/2)/p[L_LS[2]];
+					let aux_q[L_LS[2],tt,2]:= aux_q[L_LS[2],tt,2] - ((Cmax_LS[2] - Cmax_LS[1])/2)/p[L_LS[2]];
+				
+					let aux:= ((Cmax_LS[2] - Cmax_LS[1])/2);
+					let Cmax_LS[2]:= Cmax_LS[2] - ((Cmax_LS[2] - Cmax_LS[1])/2);
+					
+					let counter_failures:= 0;
+					for{subperiod in Set_Moment_Failures_1}{
+						if(subperiod > Cmax_LS[1]) then{
+							let counter_failures:= counter_failures + 1;
+						}
+					}
+			
+					let Cmax_LS[1]:= Cmax_LS[1] + aux + counter_failures;
+					
+					let ET_LS[2,L_LS[2]]:= max(Cmax_LS[1], Cmax_LS[2]);
+				}	
+					
+			} else{
+				if (((Cmax_LS[1] - Cmax_LS[2])/2)/p[L_LS[1]] < aux_q[L_LS[1],tt,1]) then{
+					let aux_q[L_LS[1],tt,2]:= aux_q[L_LS[1],tt,2] + ((Cmax_LS[1] - Cmax_LS[2])/2)/p[L_LS[1]];
+					let aux_q[L_LS[1],tt,1]:= aux_q[L_LS[1],tt,1] - ((Cmax_LS[1] - Cmax_LS[2])/2)/p[L_LS[1]];
+					
+					let aux:= ((Cmax_LS[1] - Cmax_LS[2])/2);
+					let Cmax_LS[1]:= Cmax_LS[1] - ((Cmax_LS[1] - Cmax_LS[2])/2);
+					
+					let counter_failures:= 0;
+					for{subperiod in Set_Moment_Failures_2}{
+						if(subperiod > Cmax_LS[2]) then{
+							let counter_failures:= counter_failures + 1;
+						}
+					}
+					
+					let Cmax_LS[2]:= Cmax_LS[2] + aux + counter_failures;
+					
+					let ET_LS[1,L_LS[1]]:= max(Cmax_LS[1],Cmax_LS[2]);			
+					
+				}	
+			}
+		}
+	}
+}
+
+reset data Final_Sequence;
+for{mm in M}{
+	let Final_Sequence[mm]:= Final_Sequence_LSII[mm];
+}
+
+reset data q;
+let {j in J, mm in M} q[j,tt,mm]:= 0;
+let {t in tt..tt, mm in M, j in Final_Sequence[mm]} q[j,t,mm]:= aux_q[j,t,mm];
+
+include "/Simulation.txt";
+

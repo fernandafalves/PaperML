@@ -1,0 +1,88 @@
+# ----------------------------------------------------------------------------------------------------------------------------------------------------
+# Simulation of the failures
+# ----------------------------------------------------------------------------------------------------------------------------------------------------
+reset data Cjs, index, pos, CT;
+
+let {mm in M} contador[mm]:= card(Final_Sequence[mm]);
+reset data pos;
+	
+for{mm in M}{
+	let f:= 1;
+	for{i in Final_Sequence[mm]}{
+		let pos[mm,f,tt]:= i;
+		let f:= f + 1;
+	}	
+	for{i in 1..card(Final_Sequence[mm])}{
+		let Cjs[mm]:= Cjs[mm] union {pos[mm,i,tt]};
+	}
+	let f:= 1;
+	for{j in Cjs[mm]}{
+		let index[mm,j]:= f;
+		let f:= f + 1;
+	}
+	
+	# Completion times
+	let {j in Cjs[mm]} CT[mm,j]:= trunc(setup[0,pos[mm,1,tt]] + sum{i in 1..index[mm,j]-1} setup[pos[mm,i,tt],pos[mm,i+1,tt]] + sum{i in 1..index[mm,j]} (p[pos[mm,i,tt]]*q[pos[mm,i,tt],tt,mm]),4);
+			
+	if(mm = 1) then{
+		for{subperiod in Set_Moment_Failures_1}{
+			for{j in Cjs[mm]}{
+				if(subperiod <= CT[mm,j]) then{
+					let CT[mm,j]:= CT[mm,j] + 1;
+				}	
+			}
+		}
+	} else{
+		for{subperiod in Set_Moment_Failures_2}{
+			for{j in Cjs[mm]}{
+				if(subperiod <= CT[mm,j]) then{
+					let CT[mm,j]:= CT[mm,j] + 1;
+				}	
+			}
+		}
+	}
+}
+
+# Calculates the tardiness after the failure
+let Objective_Function:= 0;
+
+for{j in J}{
+	if(j in Cjs[1] and j not in Cjs[2]) then{
+		let CT_Machines[j]:= CT[1,j];
+	} else{
+		if(j in Cjs[2] and j not in Cjs[1]) then{
+			let CT_Machines[j]:= CT[2,j];
+		} else{
+			if(j in Cjs[1] and j in Cjs[2]) then{
+				let CT_Machines[j]:= max(CT[1,j],CT[2,j]);
+			}
+		}
+	}
+}
+
+for{i in J}{
+	if(i in Cjs[1] || i in Cjs[2]) then{
+		let Objective_Function:=  Objective_Function + (W[i]*(max(CT_Machines[i] - dd[i,tt],0)));
+	}
+}
+
+let {mm in M} Cmax[mm]:= max{j in Cjs[mm]} (CT[mm,j]);
+
+if (Objective_Function < Best_Objective_Function) then{
+	let Best_Objective_Function:= Objective_Function;
+	let {mm in M} Best_Sequence[mm]:= Final_Sequence[mm]; 
+	let {mm in M} Best_Cmax[mm]:= Cmax[mm];
+	reset data Best_q;
+	let {mm in M, j in J} Best_q[j,tt,mm]:= 0;
+	let {t in tt..tt, mm in M, j in Final_Sequence[mm]} Best_q[j,t,mm]:= q[j,t,mm];
+}	
+
+if (Cmax[1] <= K[1,tt] and Cmax[2] <= K[2,tt] and Objective_Function < Best_Objective_Function_Capacity) then{
+	let Best_Objective_Function_Capacity:= Objective_Function;	
+	let {mm in M} Best_Sequence_Capacity[mm]:= Final_Sequence[mm]; 	
+	let {mm in M} Best_Cmax_Capacity[mm]:= Cmax[mm];	
+	reset data Best_q_Capacity;
+	let {mm in M, j in J} Best_q_Capacity[j,tt,mm]:= 0;
+	let {t in tt..tt, mm in M, j in Final_Sequence[mm]} Best_q_Capacity[j,t,mm]:= q[j,t,mm];		
+	let Capacity:= 0;
+}

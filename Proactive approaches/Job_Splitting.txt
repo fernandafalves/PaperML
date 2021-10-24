@@ -1,0 +1,131 @@
+reset data Final_Sequence_LSII;
+for{mm in M}{
+	for{ii in 1..cc[mm]}{
+		let Final_Sequence_LSII[mm]:= Final_Sequence_LSII[mm] union {Sequence[mm,ii]};
+	}
+}
+
+let JS:= 0;
+
+# Job Splitting
+if (Cmax_LS[1] > K[1,tt] or Cmax_LS[2] > K[2,tt]) then{
+	if (ET_LS[1,L_LS[1]] - p[L_LS[1]]*aux_q[L_LS[1],tt,1] < K[1,tt] and ET_LS[2,L_LS[2]] - p[L_LS[2]]*aux_q[L_LS[2],tt,2] < K[2,tt] and L_LS[1] != L_LS[2]) then{				
+		if (ET_LS[1,L_LS[1]] < K[1,tt] and ET_LS[2,L_LS[2]] > K[2,tt] and L_LS[2] not in Final_Sequence_LSII[1]) then{
+			let aux_q[L_LS[2],tt,1]:= (ET_LS[2,L_LS[2]] - K[2,tt])/p[L_LS[2]];	
+			let Final_Sequence_LSII[1]:= Final_Sequence_LSII[1] union {L_LS[2]}; 
+			let aux_q[L_LS[2],tt,2]:= aux_q[L_LS[2],tt,2] - (ET_LS[2,L_LS[2]] - K[2,tt])/p[L_LS[2]];
+			
+			let ET_LS[2,L_LS[2]]:= K[2,tt];   
+			
+			let Cmax_LS[1]:= ET_LS[1,L_LS[1]] + setup[L_LS[1],L_LS[2]] + aux_q[L_LS[2],tt,1]*p[L_LS[2]];
+			let Cmax_LS[2]:= K[2,tt];
+			let L_LS[1]:= L_LS[2]; 
+			let ET_LS[1,L_LS[1]]:= Cmax_LS[1];
+			let JS:= 1;
+			
+		} else{
+			if (ET_LS[1,L_LS[1]] > K[1,tt] and ET_LS[2,L_LS[2]] < K[2,tt] and L_LS[1] not in Final_Sequence_LSII[2]) then{
+				let aux_q[L_LS[1],tt,2]:= (ET_LS[1,L_LS[1]] - K[1,tt])/p[L_LS[1]];	
+				let Final_Sequence_LSII[2]:= Final_Sequence_LSII[2] union {L_LS[1]};
+				let aux_q[L_LS[1],tt,1]:= aux_q[L_LS[1],tt,1] - (ET_LS[1,L_LS[1]] - K[1,tt])/p[L_LS[1]];
+				
+				let ET_LS[1,L_LS[1]]:= K[1,tt];  
+		
+				let Cmax_LS[1]:= K[1,tt];
+				let Cmax_LS[2]:= ET_LS[2,L_LS[2]] + setup[L_LS[2],L_LS[1]] + aux_q[L_LS[1],tt,2]*p[L_LS[1]];
+				let L_LS[2]:= L_LS[1]; 
+				let ET_LS[2,L_LS[2]]:= Cmax_LS[2]; 
+				let JS:= 1;
+			}
+		}
+		
+		if (JS = 1) then{			
+			if (Cmax_LS[1] < Cmax_LS[2]) then{
+				if (((Cmax_LS[2] - Cmax_LS[1])/2)/p[L_LS[2]] < aux_q[L_LS[2],tt,2]) then{
+					let aux_q[L_LS[2],tt,1]:= aux_q[L_LS[2],tt,1] + ((Cmax_LS[2] - Cmax_LS[1])/2)/p[L_LS[2]];
+					let aux_q[L_LS[2],tt,2]:= aux_q[L_LS[2],tt,2] - ((Cmax_LS[2] - Cmax_LS[1])/2)/p[L_LS[2]];
+				
+					let aux:= ((Cmax_LS[2] - Cmax_LS[1])/2);
+					let Cmax_LS[2]:= Cmax_LS[2] - ((Cmax_LS[2] - Cmax_LS[1])/2);
+					let Cmax_LS[1]:= Cmax_LS[1] + aux;
+					
+					let ET_LS[2,L_LS[2]]:= max(Cmax_LS[1], Cmax_LS[2]);
+				}	
+			} else{
+				if (((Cmax_LS[1] - Cmax_LS[2])/2)/p[L_LS[1]] < aux_q[L_LS[1],tt,1]) then{
+					let aux_q[L_LS[1],tt,2]:= aux_q[L_LS[1],tt,2] + ((Cmax_LS[1] - Cmax_LS[2])/2)/p[L_LS[1]];
+					let aux_q[L_LS[1],tt,1]:= aux_q[L_LS[1],tt,1] - ((Cmax_LS[1] - Cmax_LS[2])/2)/p[L_LS[1]];
+					
+					let aux:= ((Cmax_LS[1] - Cmax_LS[2])/2);
+					let Cmax_LS[1]:= Cmax_LS[1] - ((Cmax_LS[1] - Cmax_LS[2])/2);					
+					let Cmax_LS[2]:= Cmax_LS[2] + aux;
+					
+					let ET_LS[1,L_LS[1]]:= max(Cmax_LS[1],Cmax_LS[2]);	
+				}	
+			}
+		}
+	}
+}
+
+reset data index, CT;
+let {mm in M} contador[mm]:= card(Final_Sequence_LSII[mm]);
+reset data pos;
+
+for{mm in M}{
+	let f:= 1;
+	for{i in Final_Sequence_LSII[mm]}{
+		let pos[mm,f,tt]:= i;
+		let f:= f + 1;
+	}
+	
+	let f:= 1;
+	for{j in Final_Sequence_LSII[mm]}{
+		let index[mm,j]:= f;
+		let f:= f + 1;
+	}
+
+	# Completion times
+	let {j in Final_Sequence_LSII[mm]} CT[mm,j]:= trunc(setup[0,pos[mm,1,tt]] + sum{i in 1..index[mm,j]-1} setup[pos[mm,i,tt],pos[mm,i+1,tt]] + sum{i in 1..index[mm,j]} (p[pos[mm,i,tt]]*aux_q[pos[mm,i,tt],tt,mm]),4);
+}
+
+# Calculates the tardiness after the failure
+let Objective_Function_LS:= 0;
+
+for{j in J}{
+	if(j in Final_Sequence_LSII[1] and j not in Final_Sequence_LSII[2]) then{
+		let CT_Machines[j]:= CT[1,j];
+	} else{
+		if(j in Final_Sequence_LSII[2] and j not in Final_Sequence_LSII[1]) then{
+			let CT_Machines[j]:= CT[2,j];
+		} else{
+			if(j in Final_Sequence_LSII[1] and j in Final_Sequence_LSII[2]) then{
+				let CT_Machines[j]:= max(CT[1,j],CT[2,j]);
+			}
+		}
+	}
+}
+
+reset data pos;
+
+for{i in J}{
+	if(i in Final_Sequence_LSII[1] || i in Final_Sequence_LSII[2]) then{
+		let Objective_Function_LS:=  Objective_Function_LS + (W[i]*(max(CT_Machines[i] - dd[i,tt],0)));
+	}
+}	
+	
+if (Objective_Function_LS < Best_Objective_Function) then{
+	let Best_Objective_Function:= Objective_Function_LS;
+	let {mm in M} Best_Sequence[mm]:= Final_Sequence_LSII[mm]; 	
+	reset data Best_q;
+	let {t in tt..tt, mm in M, j in Best_Sequence[mm]} Best_q[j,t,mm]:= aux_q[j,t,mm];
+	let {mm in M} Best_Cmax[mm]:= Cmax_LS[mm];
+}
+
+if (Cmax_LS[1] <= K[1,tt] and Cmax_LS[2] <= K[2,tt] and Objective_Function_LS < Best_Objective_Function_Capacity) then{
+	let Best_Objective_Function_Capacity:= Objective_Function_LS;
+	let {mm in M} Best_Sequence_Capacity[mm]:= Final_Sequence_LSII[mm]; 
+	reset data Best_q_Capacity;	
+	let {t in tt..tt, mm in M, j in Best_Sequence_Capacity[mm]} Best_q_Capacity[j,t,mm]:= aux_q[j,t,mm];	
+	let {mm in M} Best_Cmax_Capacity[mm]:= Cmax_LS[mm];
+	let Capacity:= 0;
+}
