@@ -1,0 +1,46 @@
+# Average data used in the framework
+# Planning and scheduling considering machine breakdown
+# -------------------------------------------------------------------------------------------------------------------------------------------------------
+
+param tf:= 2;
+param n;
+param D{i in 1..n, t in 1..tf};
+param p{i in 1..n};
+param setup{i in 0..n, j in 1..n};
+param Average_p;
+param Average_D;
+param Average_setup;
+
+set Products:= {4,6,8,10,12,15,20,50,100};
+
+printf "Instance, n, Average_p, Average_D, Average_setup \n" >> /Datafile.txt;
+
+for{jj in Products}{
+	for{v in 1..15}{
+		let n:= jj;
+		
+		for{i in 1..n}{
+			read p[i] < ("./Data_Tardiness/p" & n & v &".txt");
+			for{t in 1..tf}{
+				read D[i,t] < ("./Data_Tardiness/D" & n & v &".txt");
+			}	
+		}
+		
+		let Average_p:= trunc((sum{i in 1..n} p[i])/n,3);
+		let Average_D:= trunc((sum{i in 1..n, t in 1..tf} D[i,t])/(n*tf),3);
+
+		for{i in 0..n}{
+			for{j in 1..n}{
+				read setup[i,j] < ("./Data_Tardiness/setup" & n & v &".txt");
+			}
+		}
+		
+		let Average_setup:= trunc((sum{i in 0..n, j in 1..n: i != j} setup[i,j])/(n*n),3);
+
+		close ("./Data_Tardiness/setup" & n & v &".txt");
+		close ("./Data_Tardiness/D" & n & v &".txt");
+		close ("./Data_Tardiness/p" & n & v &".txt");
+		
+		printf "%4.2f, %4.2f, %4.2f, %4.2f, %4.2f \n", v, n, Average_p, Average_D, Average_setup >> /Datafile.txt;
+	}
+}
