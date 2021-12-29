@@ -80,14 +80,26 @@ for{mm in M}{
 	# Completion times
 	for{j in Final_Sequence_LSII[mm]}{
 		if (marker_setup[mm] = 1) then{
-			if (Reference[1] != Reference[2]) then{
-				if (mm = MF) then{
-					let CT_II[mm,j]:= Remaining_Setup[mm] + sum{i in 1..index[mm,j]-1} setup[pos[mm,i,tt],pos[mm,i+1,tt]] + sum{i in 1..index[mm,j]} (p[pos[mm,i,tt]]*aux_q[pos[mm,i,tt],tt,mm]) + (subperiod + 1);
+			if (j = next_job[mm] and index[mm,j] = 1) then{
+				if (Reference[1] != Reference[2]) then{
+					if (mm = MF) then{
+						let CT_II[mm,j]:= Remaining_Setup[mm] + sum{i in 1..index[mm,j]-1} setup[pos[mm,i,tt],pos[mm,i+1,tt]] + sum{i in 1..index[mm,j]} (p[pos[mm,i,tt]]*aux_q[pos[mm,i,tt],tt,mm]) + (subperiod + 1);
+					} else{
+						let CT_II[mm,j]:= Remaining_Setup[mm] + sum{i in 1..index[mm,j]-1} setup[pos[mm,i,tt],pos[mm,i+1,tt]] + sum{i in 1..index[mm,j]} (p[pos[mm,i,tt]]*aux_q[pos[mm,i,tt],tt,mm]) + subperiod;
+					}	
 				} else{
-					let CT_II[mm,j]:= Remaining_Setup[mm] + sum{i in 1..index[mm,j]-1} setup[pos[mm,i,tt],pos[mm,i+1,tt]] + sum{i in 1..index[mm,j]} (p[pos[mm,i,tt]]*aux_q[pos[mm,i,tt],tt,mm]) + subperiod;
-				}	
+					let CT_II[mm,j]:= Remaining_Setup[mm] + sum{i in 1..index[mm,j]-1} setup[pos[mm,i,tt],pos[mm,i+1,tt]] + sum{i in 1..index[mm,j]} (p[pos[mm,i,tt]]*aux_q[pos[mm,i,tt],tt,mm]) + (subperiod + 1);
+				}
 			} else{
-				let CT_II[mm,j]:= Remaining_Setup[mm] + sum{i in 1..index[mm,j]-1} setup[pos[mm,i,tt],pos[mm,i+1,tt]] + sum{i in 1..index[mm,j]} (p[pos[mm,i,tt]]*aux_q[pos[mm,i,tt],tt,mm]) + (subperiod + 1);
+				if (Reference[1] != Reference[2]) then{
+					if (mm = MF) then{
+						let CT_II[mm,j]:= setup[previous_job[mm],pos[mm,1,tt]] + sum{i in 1..index[mm,j]-1} setup[pos[mm,i,tt],pos[mm,i+1,tt]] + sum{i in 1..index[mm,j]} (p[pos[mm,i,tt]]*aux_q[pos[mm,i,tt],tt,mm]) + (subperiod + 1);
+					} else{
+						let CT_II[mm,j]:= setup[previous_job[mm],pos[mm,1,tt]] + sum{i in 1..index[mm,j]-1} setup[pos[mm,i,tt],pos[mm,i+1,tt]] + sum{i in 1..index[mm,j]} (p[pos[mm,i,tt]]*aux_q[pos[mm,i,tt],tt,mm]) + subperiod;
+					}
+				} else{
+					let CT_II[mm,j]:= setup[previous_job[mm],pos[mm,1,tt]] + sum{i in 1..index[mm,j]-1} setup[pos[mm,i,tt],pos[mm,i+1,tt]] + sum{i in 1..index[mm,j]} (p[pos[mm,i,tt]]*aux_q[pos[mm,i,tt],tt,mm]) + (subperiod + 1);
+				}
 			}
 				
 		} else{		
