@@ -16,16 +16,27 @@ for{mm in M}{
 		
 	for{j in Final_Sequence[mm]}{
 		if (marker_setup[mm] = 1) then{
-			if (Reference[1] != Reference[2]) then{
-				if (mm = MF) then{
-					let CT[mm,j]:= Remaining_Setup[mm] + sum{i in 1..index[mm,j]-1} setup[pos[mm,i,tt],pos[mm,i+1,tt]] + sum{i in 1..index[mm,j]} (p[pos[mm,i,tt]]*q[pos[mm,i,tt],tt,mm]) + (subp + 1);						
+			if (j = next_job[mm] and index[mm,j] = 1) then{
+				if (Reference[1] != Reference[2]) then{
+					if (mm = MF) then{
+						let CT[mm,j]:= Remaining_Setup[mm] + sum{i in 1..index[mm,j]-1} setup[pos[mm,i,tt],pos[mm,i+1,tt]] + sum{i in 1..index[mm,j]} (p[pos[mm,i,tt]]*q[pos[mm,i,tt],tt,mm]) + (subp + 1);						
+					} else{
+						let CT[mm,j]:= Remaining_Setup[mm] + sum{i in 1..index[mm,j]-1} setup[pos[mm,i,tt],pos[mm,i+1,tt]] + sum{i in 1..index[mm,j]} (p[pos[mm,i,tt]]*q[pos[mm,i,tt],tt,mm]) + subp;
+					}	
 				} else{
-					let CT[mm,j]:= Remaining_Setup[mm] + sum{i in 1..index[mm,j]-1} setup[pos[mm,i,tt],pos[mm,i+1,tt]] + sum{i in 1..index[mm,j]} (p[pos[mm,i,tt]]*q[pos[mm,i,tt],tt,mm]) + subp;
-				}	
+					let CT[mm,j]:= Remaining_Setup[mm] + sum{i in 1..index[mm,j]-1} setup[pos[mm,i,tt],pos[mm,i+1,tt]] + sum{i in 1..index[mm,j]} (p[pos[mm,i,tt]]*q[pos[mm,i,tt],tt,mm]) + (subp + 1);
+				}
 			} else{
-				let CT[mm,j]:= Remaining_Setup[mm] + sum{i in 1..index[mm,j]-1} setup[pos[mm,i,tt],pos[mm,i+1,tt]] + sum{i in 1..index[mm,j]} (p[pos[mm,i,tt]]*q[pos[mm,i,tt],tt,mm]) + (subp + 1);
-			}
-				
+				if (Reference[1] != Reference[2]) then{
+					if (mm = MF) then{
+						let CT[mm,j]:= setup[previous_job[mm],pos[mm,1,tt]] + sum{i in 1..index[mm,j]-1} setup[pos[mm,i,tt],pos[mm,i+1,tt]] + sum{i in 1..index[mm,j]} (p[pos[mm,i,tt]]*q[pos[mm,i,tt],tt,mm]) + (subp + 1);
+					} else{
+						let CT[mm,j]:= setup[previous_job[mm],pos[mm,1,tt]] + sum{i in 1..index[mm,j]-1} setup[pos[mm,i,tt],pos[mm,i+1,tt]] + sum{i in 1..index[mm,j]} (p[pos[mm,i,tt]]*q[pos[mm,i,tt],tt,mm]) + subp;
+					}
+				} else{
+					let CT[mm,j]:= setup[previous_job[mm],pos[mm,1,tt]] + sum{i in 1..index[mm,j]-1} setup[pos[mm,i,tt],pos[mm,i+1,tt]] + sum{i in 1..index[mm,j]} (p[pos[mm,i,tt]]*q[pos[mm,i,tt],tt,mm]) + (subp + 1);
+				}
+			}	
 		} else{		
 			if (Reference[1] != Reference[2]) then{		
 				if (mm = MF) then{				
