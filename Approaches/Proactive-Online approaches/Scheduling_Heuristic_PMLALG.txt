@@ -4,32 +4,68 @@
 let {i in 0..card(J)} ET[i]:= 0;
 
 let {mm in M} L[mm]:= previous_job[mm]; # Last job assigned to machine mm
-reset data Final_Sequence;
 
-let {mm in M} Final_Sequence[mm]:= Cjs[mm];
-
-if (Reference[1] != Reference[2]) then{
-	for{mm in M}{
-		if (mm = MF) then{
-			for{j in Cjs[mm]: CT[mm,j] > subp}{
-				let CT[mm,j]:= CT[mm,j] + 1;
-			}
-		}
+reset data CT;
+for{mm in M}{
+	let f:= 1;
+	for{i in Final_Sequence[mm]}{
+		let pos[mm,f,tt]:= i;
+		let index[mm,i]:= f;
+		let f:= f + 1;
 	}
-} else{
-	for{mm in M}{
-		for{j in Cjs[mm]: CT[mm,j] > subp}{
-			let CT[mm,j]:= CT[mm,j] + 1;
+		
+	for{j in Final_Sequence[mm]}{
+		if (marker_setup[mm] = 1) then{
+			if (Reference[1] != Reference[2]) then{
+				if (mm = MF) then{
+					let CT[mm,j]:= Remaining_Setup[mm] + sum{i in 1..index[mm,j]-1} setup[pos[mm,i,tt],pos[mm,i+1,tt]] + sum{i in 1..index[mm,j]} (p[pos[mm,i,tt]]*q[pos[mm,i,tt],tt,mm]) + (subp + 1);						
+				} else{
+					let CT[mm,j]:= Remaining_Setup[mm] + sum{i in 1..index[mm,j]-1} setup[pos[mm,i,tt],pos[mm,i+1,tt]] + sum{i in 1..index[mm,j]} (p[pos[mm,i,tt]]*q[pos[mm,i,tt],tt,mm]) + subp;
+				}	
+			} else{
+				let CT[mm,j]:= Remaining_Setup[mm] + sum{i in 1..index[mm,j]-1} setup[pos[mm,i,tt],pos[mm,i+1,tt]] + sum{i in 1..index[mm,j]} (p[pos[mm,i,tt]]*q[pos[mm,i,tt],tt,mm]) + (subp + 1);
+			}
+				
+		} else{		
+			if (Reference[1] != Reference[2]) then{		
+				if (mm = MF) then{				
+					let CT[mm,j]:= setup[previous_job[mm],pos[mm,1,tt]] + sum{i in 1..index[mm,j]-1} setup[pos[mm,i,tt],pos[mm,i+1,tt]] + sum{i in 1..index[mm,j]} (p[pos[mm,i,tt]]*q[pos[mm,i,tt],tt,mm]) + (subp + 1);
+				} else{
+					let CT[mm,j]:= setup[previous_job[mm],pos[mm,1,tt]] + sum{i in 1..index[mm,j]-1} setup[pos[mm,i,tt],pos[mm,i+1,tt]] + sum{i in 1..index[mm,j]} (p[pos[mm,i,tt]]*q[pos[mm,i,tt],tt,mm]) + subp;
+				}
+			} else{
+				let CT[mm,j]:= setup[previous_job[mm],pos[mm,1,tt]] + sum{i in 1..index[mm,j]-1} setup[pos[mm,i,tt],pos[mm,i+1,tt]] + sum{i in 1..index[mm,j]} (p[pos[mm,i,tt]]*q[pos[mm,i,tt],tt,mm]) + (subp + 1);
+			}		
 		}
 	}
 }	
 
 for{mm in M}{
-	for{j in Cjs[mm]}{
-		if (j in Cjs[1] and j in Cjs[2]) then{
+	if(mm = 1) then{
+		for{subperiod in Set_Moment_Failures_1: subperiod > subp}{
+			for{j in Final_Sequence[mm]}{
+				if(subperiod <= CT[mm,j]) then{
+					let CT[mm,j]:= CT[mm,j] + 1;
+				}	
+			}
+		}
+	} else{
+		for{subperiod in Set_Moment_Failures_2: subperiod > subp}{
+			for{j in Final_Sequence[mm]}{
+				if(subperiod <= CT[mm,j]) then{
+					let CT[mm,j]:= CT[mm,j] + 1;
+				}	
+			}
+		}
+	}
+}
+
+for{mm in M}{
+	for{j in Final_Sequence[mm]}{
+		if (j in Final_Sequence[1] and j in Final_Sequence[2]) then{
 			let ET[j]:= max(CT[1,j],CT[2,j]);
 		} else{
-			if (j in Cjs[1]) then{
+			if (j in Final_Sequence[1]) then{
 				let ET[j]:= CT[1,j];
 			} else{
 				let ET[j]:= CT[2,j];
@@ -46,7 +82,6 @@ let {mm in M} Cjs[mm]:= SEQUENCE[mm];
 for{mm in M}{
 	for{j in Cjs[mm]: q[j,tt,mm] = 0}{
 		let Final_Sequence[mm]:= Final_Sequence[mm] diff {j}; 
-		let CT_Backup[mm,j]:= CT[mm,j];
 	}
 }
 
@@ -58,12 +93,19 @@ for{mm in M}{
 		let Cmax[mm]:= CT[mm,L[mm]];
 	}
 }
-
 # Calculates the tardiness
 let Objective_Function:= 0;
 
 for{i in J}{
 	let Objective_Function:=  Objective_Function + (W[i]*(max(ET[i] - dd[i,tt],0)));
+}
+
+for{j in J}{
+	for{mm in M}{
+		if(q[j,1,mm] < 0) then{
+			printf "Problem!!" >> /Users/ferna/Drive/Tese_Algoritmos/Predictive_Reactive_Approach/ResultPMLALG_WF.txt;
+		}
+	}
 }
 
 reset data Final_CT, Final_CT_Capacity;
@@ -151,6 +193,14 @@ let Objective_Function:= 0;
 
 for{i in J}{
 	let Objective_Function:=  Objective_Function + (W[i]*(max(ET[i] - dd[i,tt],0)));
+}
+
+for{j in J}{
+	for{mm in M}{
+		if(q[j,1,mm] < 0) then{
+			printf "Problem!!" >> /Users/ferna/Drive/Tese_Algoritmos/Predictive_Reactive_Approach/ResultPMLALG_WF.txt;
+		}
+	}
 }
 
 if (Objective_Function < Best_Objective_Function) then{
@@ -288,7 +338,7 @@ for{MM in M}{
 				
 				let {mm in M} Cmax_LS[mm]:= ET_LS[mm,L_LS[mm]];
 				
-				include "/Job_Splitting_Modified_PMLALG.txt";
+				include "/Users/ferna/Drive/Tese_Algoritmos/Predictive_Reactive_Approach/Job_Splitting_Modified_PMLALG.txt";
 									
 				for{machine in M: MM != machine and machine > MM}{
 					for{nn in int..card(Final_Sequence_LSIV[machine])}{
@@ -379,13 +429,21 @@ for{MM in M}{
 								
 								let {mm in M} Cmax_LS[mm]:= ET_LS[mm,L_LS[mm]];
 								
-								include "/Job_Splitting_Modified_PMLALG.txt";
+								include "/Users/ferna/Drive/Tese_Algoritmos/Predictive_Reactive_Approach/Job_Splitting_Modified_PMLALG.txt";
 							}	
 						}
 					}
 				}	
 			}
 		}	
+	}
+}
+
+for{j in J}{
+	for{mm in M}{
+		if(q[j,1,mm] < 0) then{
+			printf "Problem!!" >> /Users/ferna/Drive/Tese_Algoritmos/Predictive_Reactive_Approach/ResultPMLALG_WF.txt;
+		}
 	}
 }
 
@@ -494,7 +552,7 @@ for{k in Final_Sequence_LS[1]: k != previous_job[1]}{
 						
 			let {mm in M} Cmax_LS[mm]:= ET_LS[mm,L_LS[mm]];				
 													
-			include "/Job_Splitting_Modified_PMLALG.txt";
+			include "/Users/ferna/Drive/Tese_Algoritmos/Predictive_Reactive_Approach/Job_Splitting_Modified_PMLALG.txt";
 			
 			# Local search for each machine
 			for{MM in M}{
@@ -595,7 +653,7 @@ for{k in Final_Sequence_LS[1]: k != previous_job[1]}{
 								
 								let {mm in M} Cmax_LS[mm]:= ET_LS[mm,L_LS[mm]];
 																							
-								include "/Job_Splitting_Modified_PMLALG.txt";
+								include "/Users/ferna/Drive/Tese_Algoritmos/Predictive_Reactive_Approach/Job_Splitting_Modified_PMLALG.txt";
 																															
 								for{machine in M: MM != machine and machine > MM}{
 									for{nn in 1..card(Final_Sequence_LSIV[machine])}{
@@ -686,7 +744,7 @@ for{k in Final_Sequence_LS[1]: k != previous_job[1]}{
 													
 													let {mm in M} Cmax_LS[mm]:= ET_LS[mm,L_LS[mm]];
 
-													include "/Job_Splitting_Modified_PMLALG.txt";
+													include "/Users/ferna/Drive/Tese_Algoritmos/Predictive_Reactive_Approach/Job_Splitting_Modified_PMLALG.txt";
 												}	
 											}	
 										}
@@ -697,6 +755,14 @@ for{k in Final_Sequence_LS[1]: k != previous_job[1]}{
 					}	
 				}
 			}
+		}
+	}
+}
+		
+for{j in J}{
+	for{mm in M}{
+		if(q[j,tt,mm] < 0) then{
+			printf "Problem!!" >> /Users/ferna/Drive/Tese_Algoritmos/Predictive_Reactive_Approach/ResultPMLALG_WF.txt;
 		}
 	}
 }
@@ -712,7 +778,6 @@ if (Capacity = 0) then{
 	let {mm in M} Previous_Sequence[mm]:= Set_Jobs[mm];
 		
 	let Final_Objective_Function:= Best_Objective_Function_Capacity;
-	let {mm in M} Final_Cmax[mm]:= Best_Cmax_Capacity[mm]; 
 	let {mm in M} contador[mm]:= card(Best_Sequence_Capacity[mm]);
 	reset data q;
 	let {j in J, mm in M} q[j,tt,mm]:= 0;
@@ -732,14 +797,15 @@ if (Capacity = 0) then{
 		
 		let {j in SEQUENCE[mm]} CT[mm,j]:= Final_CT_Capacity[mm,j];			
 		let {j in SEQUENCE[mm]} CT_Backup[mm,j]:= CT[mm,j];
-	}	
+	}
+		
+	let {mm in M} Final_Cmax[mm]:= Best_Cmax_Capacity[mm]; 
 } else{
 
 	reset data Previous_Sequence;
 	let {mm in M} Previous_Sequence[mm]:= Set_Jobs[mm];
 
 	let Final_Objective_Function:= Best_Objective_Function;
-	let {mm in M} Final_Cmax[mm]:= Best_Cmax[mm];
 	let Capacity:= 1;
 	let {mm in M} contador[mm]:= card(Best_Sequence[mm]);
 	reset data q;
@@ -760,4 +826,6 @@ if (Capacity = 0) then{
 		let {j in SEQUENCE[mm]} CT[mm,j]:= Final_CT[mm,j];
 		let {j in SEQUENCE[mm]} CT_Backup[mm,j]:= CT[mm,j];
 	}
+	
+	let {mm in M} Final_Cmax[mm]:= Best_Cmax[mm];
 }
