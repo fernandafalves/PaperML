@@ -4,13 +4,13 @@
 
 if (first_iteration = 1) then{
 	let counter_retrain:= 0;
-	
+		
 	if (tt = 1) then{
 		let {mm in M, h in T} K[mm,h]:= 112;
 	}
 
 	if (v = 1) then{
-		printf "\n" >> /ResultPMLINTS_F2.txt;
+		printf "\n" >> /Users/ferna/Drive/Tese_Algoritmos/Predictive_Reactive_Approach/ResultPMLINTS_WF.txt;
 	}
 
 	let Cj[1]:= 4;
@@ -23,35 +23,33 @@ if (first_iteration = 1) then{
 	let Cj[8]:= 50;
 	let Cj[9]:= 100;
 	let n:= Cj[val];
-
+	
 	for{i in 1..n}{
-		read p[i] < ("/Data_Tardiness/p" & n & v &".txt");
-		read W[i] < ("/Data_Tardiness/W" & n & v &".txt");
+		read p[i] < ("/Users/ferna/Drive/Tese_Algoritmos/Framework/Data_Tardiness/p" & n & v &".txt");
+		read W[i] < ("/Users/ferna/Drive/Tese_Algoritmos/Framework/Data_Tardiness/W" & n & v &".txt");
 		for{t in 1..tf}{
-			read dd[i,t] < ("/Data_Tardiness/dd" & n & v &".txt");
-			read D[i,t] < ("/Data_Tardiness/D" & n & v &".txt");
+			read dd[i,t] < ("/Users/ferna/Drive/Tese_Algoritmos/Framework/Data_Tardiness/dd" & n & v &".txt");
+			read D[i,t] < ("/Users/ferna/Drive/Tese_Algoritmos/Framework/Data_Tardiness/D" & n & v &".txt");
 		}
 	}
 
 	for{i in 0..n}{
 		for{j in 1..n}{
-			read setup[i,j] < ("/Data_Tardiness/setup" & n & v &".txt");
+			read setup[i,j] < ("/Users/ferna/Drive/Tese_Algoritmos/Framework/Data_Tardiness/setup" & n & v &".txt");
 		}
 	}
-
-	close ("/Data_Tardiness/setup" & n & v &".txt");
-	close ("/Data_Tardiness/D" & n & v &".txt");
-	close ("/Data_Tardiness/p" & n & v &".txt");
-	close ("/Data_Tardiness/W" & n & v &".txt");
-	close ("/Data_Tardiness/dd" & n & v &".txt");
+	
+	close ("/Users/ferna/Drive/Tese_Algoritmos/Framework/Data_Tardiness/setup" & n & v &".txt");
+	close ("/Users/ferna/Drive/Tese_Algoritmos/Framework/Data_Tardiness/D" & n & v &".txt");
+	close ("/Users/ferna/Drive/Tese_Algoritmos/Framework/Data_Tardiness/p" & n & v &".txt");
+	close ("/Users/ferna/Drive/Tese_Algoritmos/Framework/Data_Tardiness/W" & n & v &".txt");
+	close ("/Users/ferna/Drive/Tese_Algoritmos/Framework/Data_Tardiness/dd" & n & v &".txt");
 
 	for {i in J, j in J: i = j}{
 		let setup[i,j]:= 0;
 	}
 
 	let {j in J} Sm[j]:= trunc((sum{i in 0..n: i != j}setup[i,j])/((max{k in J}k)),3); # Average setup
-
-	let tempo:= _ampl_time + _total_solve_time;
 
 	reset data Cjs, novo_makespan;
 
@@ -68,15 +66,17 @@ if (first_iteration = 1) then{
 		
 		
 	let {mm in M} K[mm,tt]:= K[mm,tt] - DFailure[mm]; 
-		
+			
 	reset data z, y, x, u;
 			
 	objective A;
 	restore r1; restore r2; restore r3; restore r4; restore r5; restore r6; restore r7; restore r8; restore r9;
 	solve;
-
+	
 	let {j in J, mm in M} q[j,tt,mm]:= D[j,tt]*z[j,mm];
 			
+	#let {mm in M} K[mm]:= Original_Capacity;
+
 	# Solve scheduling considering parallel machines, the minimization of the total weighted tardiness and job splitting
 	# Heuristic based on Park et al. (2012) named "Heuristic 1 (slack-based heuristic)" - MODIFIED
 
@@ -222,6 +222,14 @@ if (first_iteration = 1) then{
 	for{i in J}{
 		let Objective_Function:=  Objective_Function + (W[i]*(max(ET[i] - dd[i,tt],0)));
 	}
+
+	for{mm in M}{
+		for{j in Final_Sequence[mm]}{
+			if(q[j,tt,mm] < 0) then{
+				printf "Problem!!" >> /Users/ferna/Drive/Tese_Algoritmos/Framework/ResultFirstAlternative_II.txt
+			}
+		}
+	}
 		
 	let Best_Objective_Function:= Objective_Function;
 	let {mm in M} Best_Sequence[mm]:= Final_Sequence[mm]; 
@@ -305,6 +313,15 @@ if (first_iteration = 1) then{
 	for{i in J}{
 		let Objective_Function:=  Objective_Function + (W[i]*(max(ET[i] - dd[i,tt],0)));
 	}
+
+	for{mm in M}{
+		for{j in Final_Sequence[mm]}{
+			if(q[j,tt,mm] < 0) then{
+				printf "Problem!!" >> /Users/ferna/Drive/Tese_Algoritmos/Predictive_Reactive_Approach/ResultPMLINTS_WF.txt;
+			}
+		}
+	}
+
 
 	let Capacity:= 1;
 		
@@ -396,7 +413,7 @@ if (first_iteration = 1) then{
 					
 					let {mm in M} Cmax_LS[mm]:= ET_LS[mm,L_LS[mm]];
 					
-					include "/Job_Splitting.txt";
+					include "/Users/ferna/Drive/Tese_Algoritmos/Framework/Job_Splitting.txt";
 										
 					for{machine in M: MM != machine and machine > MM}{
 						for{nn in 1..card(Final_Sequence_LSIV[machine])}{
@@ -454,7 +471,7 @@ if (first_iteration = 1) then{
 									
 									let {mm in M} Cmax_LS[mm]:= ET_LS[mm,L_LS[mm]];
 									
-									include "/Job_Splitting.txt";
+									include "/Users/ferna/Drive/Tese_Algoritmos/Framework/Job_Splitting.txt";
 								}	
 							}
 						}
@@ -537,7 +554,7 @@ if (first_iteration = 1) then{
 				
 				let {mm in M} Cmax_LS[mm]:= ET_LS[mm,L_LS[mm]];
 											
-				include "/Job_Splitting.txt";
+				include "/Users/ferna/Drive/Tese_Algoritmos/Framework/Job_Splitting.txt";
 				
 				# Local search for each machine
 				for{MM in M}{
@@ -603,7 +620,7 @@ if (first_iteration = 1) then{
 								
 								let {mm in M} Cmax_LS[mm]:= ET_LS[mm,L_LS[mm]];
 																							
-								include "/Job_Splitting.txt";
+								include "/Users/ferna/Drive/Tese_Algoritmos/Framework/Job_Splitting.txt";
 																															
 								for{machine in M: MM != machine and machine > MM}{
 									for{nn in 1..card(Final_Sequence_LSIV[machine])}{
@@ -660,7 +677,7 @@ if (first_iteration = 1) then{
 												
 												let {mm in M} Cmax_LS[mm]:= ET_LS[mm,L_LS[mm]];
 
-												include "/Job_Splitting.txt";
+												include "/Users/ferna/Drive/Tese_Algoritmos/Framework/Job_Splitting.txt";
 											}	
 										}
 									}
@@ -674,6 +691,14 @@ if (first_iteration = 1) then{
 	}
 		
 	if (Capacity = 0) then{
+		for{mm in M}{
+			for{j in Best_Sequence_Capacity[mm]}{
+				if(q[j,tt,mm] < 0) then{
+					printf "Problem!!" >> /Users/ferna/Drive/Tese_Algoritmos/Predictive_Reactive_Approach/ResultPMLINTS_WF.txt;
+				}
+			}
+		}	
+
 		let Final_Objective_Function:= Best_Objective_Function_Capacity;
 		let {mm in M} Final_Cmax[mm]:= Best_Cmax_Capacity[mm];
 		let {mm in M} contador[mm]:= card(Best_Sequence_Capacity[mm]);
@@ -695,6 +720,14 @@ if (first_iteration = 1) then{
 			}	
 		}	
 	} else{
+		for{mm in M}{
+			for{j in Best_Sequence[mm]}{
+				if(q[j,tt,mm] < 0) then{
+					printf "Problem!!" >> /Users/ferna/Drive/Tese_Algoritmos/Predictive_Reactive_Approach/ResultPMLINTS_WF.txt;
+				}
+			}
+		}
+		
 		let Final_Objective_Function:= Best_Objective_Function;
 		let {mm in M} Final_Cmax[mm]:= Best_Cmax[mm];
 		let Capacity:= 1;
@@ -737,7 +770,7 @@ if (first_iteration = 1) then{
 		# Completion times
 		let {j in Cjs[mm]} CT[mm,j]:= trunc(setup[0,pos[mm,1,tt]] + sum{i in 1..index[mm,j]-1} setup[pos[mm,i,tt],pos[mm,i+1,tt]] + sum{i in 1..index[mm,j]} (p[pos[mm,i,tt]]*q[pos[mm,i,tt],tt,mm]),4);
 	}
-
+	
 	let {mm in M,j in Cjs[mm]} Final_CT[mm,j]:= CT[mm,j];
 	let {mm in M,j in Cjs[mm]} CT_Backup[mm,j]:= CT[mm,j];
 
@@ -745,11 +778,12 @@ if (first_iteration = 1) then{
 	let {j in J, mm in M} Original_q[j,tt,mm]:= q[j,tt,mm];
 	let first_iteration:= 0;
 	reset data Failures_1, Failures_2;
-	
 	reset data SEQUENCE, Current_Sequence, Current_Sequence_Backup;
 
 	let {mm in M} Current_Sequence[mm]:= Cjs[mm];
 }
+
+
 
 # Colect the first failures on each machine
 let f:= 1;
@@ -768,8 +802,8 @@ for{i in Set_Reference_Failures_2}{
 }
 	
 let Set_failures_1:= Set_Reference_Failures_1;
-let Set_failures_2:= Set_Reference_Failures_2;				
-
+let Set_failures_2:= Set_Reference_Failures_2;
+				
 reset data Pressure_pred, Speed_pred, Temperature_pred, Sound_pred, Vibration_pred, Pressure_M2_pred, Speed_M2_pred, Temperature_M2_pred, Sound_M2_pred, Vibration_M2_pred;
 
 let f:= 1;
@@ -939,9 +973,9 @@ let retrain:= 0;
 repeat while (subperiod < max(Final_Cmax[1],Final_Cmax[2]) and retrain == 0 and subperiod < 112){
 	let subperiod:= subperiod + 1;
 	let Capacity:= 1;
-		
+				
 	# Walks through time until find the first failure
-	if (subperiod = min(Reference[1],Reference[2]) and (card(Set_Reference_Failures_1) != 0 || card(Set_Reference_Failures_2) != 0) and subperiod != 112) then{					
+	if (subperiod = min(Reference[1],Reference[2]) and (card(Set_Reference_Failures_1) != 0 || card(Set_Reference_Failures_2) != 0) and subperiod != 112) then{								
 		let marker:= 0;					
 		if (Reference[1] != Reference[2]) then{
 			if (Reference[1] = min(Reference[1],Reference[2])) then{
@@ -959,7 +993,7 @@ repeat while (subperiod < max(Final_Cmax[1],Final_Cmax[2]) and retrain == 0 and 
 			let Failures_1:= Failures_1 union {subperiod};
 			let Failures_2:= Failures_2 union {subperiod};
 		}
-						
+								
 		#let {mm in M} K[mm,tt]:= Original_Capacity - (subperiod + 1);
 		let {mm in M} K[mm,tt]:= Original_Capacity;
 				
@@ -1070,7 +1104,7 @@ repeat while (subperiod < max(Final_Cmax[1],Final_Cmax[2]) and retrain == 0 and 
 				}
 			}
 		}			
-																
+																		
 		reset data Final_Sequence;
 
 		let {mm in M} Final_Sequence[mm]:= Cjs[mm];
@@ -1082,7 +1116,7 @@ repeat while (subperiod < max(Final_Cmax[1],Final_Cmax[2]) and retrain == 0 and 
 		}		
 																		
 		if (card(Final_Sequence[1]) != 0 and card(Final_Sequence[2]) != 0) then{			
-			include "/Scheduling_Heuristic.txt";
+			include "/Users/ferna/Drive/Tese_Algoritmos/Predictive_Reactive_Approach/Scheduling_Heuristic.txt";
 		} else{
 			if (Reference[1] != Reference[2]) then{
 				for{mm in M}{
@@ -1108,7 +1142,7 @@ repeat while (subperiod < max(Final_Cmax[1],Final_Cmax[2]) and retrain == 0 and 
 				}
 			}
 		}
-
+		
 		reset data index, posII, Current_Sequence;
 
 		# Definition of indexes of the sequence pos
@@ -1144,7 +1178,7 @@ repeat while (subperiod < max(Final_Cmax[1],Final_Cmax[2]) and retrain == 0 and 
 				let Original_q[j,tt,1]:= Original_q[j,tt,2];
 				let Original_q[j,tt,2]:= f;
 				
-				printf "Entra aqui!!" >> /ResultPMLINTS_F2.txt;
+				printf "Entra aqui!!" >> /Users/ferna/Drive/Tese_Algoritmos/Predictive_Reactive_Approach/ResultPMLINTS_WF.txt;
 			}
 		}
 						
@@ -1162,8 +1196,8 @@ repeat while (subperiod < max(Final_Cmax[1],Final_Cmax[2]) and retrain == 0 and 
 				let posII[mm,f,tt]:= j; 
 				let f:= f + 1;
 			}
-		}	
-								
+		}
+										
 		if (Reference[1] != Reference[2]) then{
 			if (Reference[1] = min(Reference[1],Reference[2])) then{
 				let Set_Reference_Failures_1:= Set_Reference_Failures_1 diff {Reference[1]};
@@ -1209,13 +1243,15 @@ repeat while (subperiod < max(Final_Cmax[1],Final_Cmax[2]) and retrain == 0 and 
 }
 
 if (retrain = 0) then{
-
 	reset data pos, index;
-
+	
 	for{mm in M}{
 		for{j in Current_Sequence[mm]}{	
 			if (q[j,tt,mm] > 0 || total_q[j,tt,mm] > 0) then{
 				let q[j,tt,mm]:= q[j,tt,mm] + total_q[j,tt,mm];
+			}
+			if (q[j,tt,mm] < 0 || total_q[j,tt,mm] < 0) then{
+				printf "Problem!!!" >> /Users/ferna/Drive/Tese_Algoritmos/Predictive_Reactive_Approach/ResultPMLINTS_WF.txt;
 			}
 		}
 		
@@ -1231,6 +1267,23 @@ if (retrain = 0) then{
 			let pos[mm,f,tt]:= j;
 			let f:= f + 1;
 		}
+		
+		for{j in Current_Sequence[mm]}{	
+			let CT[mm,j]:= trunc(setup[0,pos[mm,1,tt]] + sum{i in 1..index[mm,j]-1} setup[pos[mm,i,tt],pos[mm,i+1,tt]] + sum{i in 1..index[mm,j]} (p[pos[mm,i,tt]]*Original_q[pos[mm,i,tt],tt,mm]),4);
+			
+			if (mm = 1) then{
+				for{jj in Failures_1: jj < CT[mm,j]}{
+					let CT[mm,j]:= CT[mm,j] + 1;
+				}
+			} else{
+				for{jj in Failures_2: jj < CT[mm,j]}{
+					let CT[mm,j]:= CT[mm,j] + 1;
+				}
+			}	
+				
+			let CT_Backup[mm,j]:= CT[mm,j];
+		}
+		let Final_Cmax[mm]:= max{j in Current_Sequence[mm]} CT[mm,j];
 
 		if (Final_Cmax[mm] > K[mm,tt] + 0.05) then{		
 			let Jobs:= 0;
@@ -1284,7 +1337,7 @@ if (retrain = 0) then{
 				let Final_Objective_Function:=  Final_Objective_Function + (W[i]*(max(CT_Machines[i] - dd[i,tt],0)));
 			}
 		}
-		
+				
 		let idle[mm]:= max(0,K[mm,tt] - Final_Cmax[mm]);
 		
 		if (mm = 2) then{
@@ -1296,7 +1349,7 @@ if (retrain = 0) then{
 
 		if (mm = 2 and tt = 2) then{ 
 			let tempo:= _ampl_time + _total_solve_time - tempo;
-			printf "%4.2f, %4.2f, %4.2f, %4.2f, %4.2f, %4.2f, %4.2f \n", n, v, OF, total_tardiness, total_add_of, total_idle, tempo  >> /ResultPMLINTS_F2_Hybrid.txt;
+			printf "%4.2f, %4.2f, %4.2f, %4.2f, %4.2f, %4.2f, %4.2f \n", n, v, OF, total_tardiness, total_add_of, total_idle, tempo  >> /Users/ferna/Drive/Tese_Algoritmos/Predictive_Reactive_Approach/ResultPMLINTS_F2_Hybrid.txt;
 		}
 	}
 }
