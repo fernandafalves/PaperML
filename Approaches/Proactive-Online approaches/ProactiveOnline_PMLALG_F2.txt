@@ -9,7 +9,7 @@ if (first_iteration = 1) then{
 	}
 
 	if (v = 1) then{
-		printf "\n" >> /ResultSecondAlternative.txt;
+		printf "\n" >> /Users/ferna/Drive/Tese_Algoritmos/Framework/ResultSecondAlternative.txt;
 	}
 
 	let Cj[1]:= 4;
@@ -24,25 +24,25 @@ if (first_iteration = 1) then{
 	let n:= Cj[val];
 
 	for{i in 1..n}{
-		read p[i] < ("/Data_Tardiness/p" & n & v &".txt");
-		read W[i] < ("/Data_Tardiness/W" & n & v &".txt");
+		read p[i] < ("/Users/ferna/Drive/Tese_Algoritmos/Framework/Data_Tardiness/p" & n & v &".txt");
+		read W[i] < ("/Users/ferna/Drive/Tese_Algoritmos/Framework/Data_Tardiness/W" & n & v &".txt");
 		for{t in 1..tf}{
-			read dd[i,t] < ("/Data_Tardiness/dd" & n & v &".txt");
-			read D[i,t] < ("/Data_Tardiness/D" & n & v &".txt");
+			read dd[i,t] < ("/Users/ferna/Drive/Tese_Algoritmos/Framework/Data_Tardiness/dd" & n & v &".txt");
+			read D[i,t] < ("/Users/ferna/Drive/Tese_Algoritmos/Framework/Data_Tardiness/D" & n & v &".txt");
 		}
 	}
 
 	for{i in 0..n}{
 		for{j in 1..n}{
-			read setup[i,j] < ("/Data_Tardiness/setup" & n & v &".txt");
+			read setup[i,j] < ("/Users/ferna/Drive/Tese_Algoritmos/Framework/Data_Tardiness/setup" & n & v &".txt");
 		}
 	}
 
-	close ("/Data_Tardiness/setup" & n & v &".txt");
-	close ("/Data_Tardiness/D" & n & v &".txt");
-	close ("/Data_Tardiness/p" & n & v &".txt");
-	close ("/Data_Tardiness/W" & n & v &".txt");
-	close ("/Data_Tardiness/dd" & n & v &".txt");
+	close ("/Users/ferna/Drive/Tese_Algoritmos/Framework/Data_Tardiness/setup" & n & v &".txt");
+	close ("/Users/ferna/Drive/Tese_Algoritmos/Framework/Data_Tardiness/D" & n & v &".txt");
+	close ("/Users/ferna/Drive/Tese_Algoritmos/Framework/Data_Tardiness/p" & n & v &".txt");
+	close ("/Users/ferna/Drive/Tese_Algoritmos/Framework/Data_Tardiness/W" & n & v &".txt");
+	close ("/Users/ferna/Drive/Tese_Algoritmos/Framework/Data_Tardiness/dd" & n & v &".txt");
 
 	for {i in J, j in J: i = j}{
 		let setup[i,j]:= 0;
@@ -72,6 +72,10 @@ if (first_iteration = 1) then{
 	objective A;
 	restore r1; restore r2; restore r3; restore r4; restore r5; restore r6; restore r7; restore r8; restore r9; restore r10;
 	solve;
+
+	if(solve_result = 'infeasible') then{
+		printf "Problem!!" >> ResultSecondAlternative.txt
+	}
 
 	let {mm in M} K[mm,tt]:= Original_Capacity;
 		
@@ -217,7 +221,7 @@ if (first_iteration = 1) then{
 
 	let Capacity:= 1;
 		
-	include "/Simulation.txt";
+	include "/Users/ferna/Drive/Tese_Algoritmos/Framework/Simulation.txt";
 			
 	reset data aux_q;		
 	let {j in J, t in tt..tt, mm in M} aux_q[j,t,mm]:= 0;		
@@ -226,7 +230,7 @@ if (first_iteration = 1) then{
 	let {mm in M, i in 1..card(Final_Sequence_LS[mm])} Sequence[mm,i]:= pos[mm,i,tt]; 
 	let {mm in M} cc[mm]:= card(Final_Sequence_LS[mm]);
 		
-	include "/Job_Splitting_Stochastic.txt";
+	include "/Users/ferna/Drive/Tese_Algoritmos/Framework/Job_Splitting_Stochastic.txt";
 
 	let iteration:= 1;
 
@@ -294,7 +298,7 @@ if (first_iteration = 1) then{
 					
 					let {mm in M} Cmax_LS[mm]:= ET_LS[mm,L_LS[mm]];
 					
-					include "/Job_Splitting_Stochastic.txt";
+					include "/Users/ferna/Drive/Tese_Algoritmos/Framework/Job_Splitting_Stochastic.txt";
 					
 					for{machine in M: MM != machine and machine > MM}{
 						for{nn in 1..card(Final_Sequence_LSIV[machine])}{
@@ -352,7 +356,7 @@ if (first_iteration = 1) then{
 									
 									let {mm in M} Cmax_LS[mm]:= ET_LS[mm,L_LS[mm]];
 									
-									include "/Job_Splitting_Stochastic.txt";
+									include "/Users/ferna/Drive/Tese_Algoritmos/Framework/Job_Splitting_Stochastic.txt";
 								}	
 							}
 						}
@@ -434,7 +438,7 @@ if (first_iteration = 1) then{
 				
 				let {mm in M} Cmax_LS[mm]:= ET_LS[mm,L_LS[mm]];
 							
-				include "/Job_Splitting_Stochastic.txt";
+				include "/Users/ferna/Drive/Tese_Algoritmos/Framework/Job_Splitting_Stochastic.txt";
 		
 				# Local search for each machine
 				for{MM in M}{
@@ -500,7 +504,7 @@ if (first_iteration = 1) then{
 								
 								let {mm in M} Cmax_LS[mm]:= ET_LS[mm,L_LS[mm]];
 							
-								include "/Job_Splitting_Stochastic.txt";
+								include "/Users/ferna/Drive/Tese_Algoritmos/Framework/Job_Splitting_Stochastic.txt";
 								
 								for{machine in M: MM != machine and machine > MM}{
 									for{nn in 1..card(Final_Sequence_LSIV[machine])}{
@@ -558,7 +562,7 @@ if (first_iteration = 1) then{
 												
 												let {mm in M} Cmax_LS[mm]:= ET_LS[mm,L_LS[mm]];
 
-												include "/Job_Splitting_Stochastic.txt";
+												include "/Users/ferna/Drive/Tese_Algoritmos/Framework/Job_Splitting_Stochastic.txt";
 											}	
 										}
 									}
@@ -614,7 +618,7 @@ if (first_iteration = 1) then{
 				let f:= f + 1;
 			}	
 		}
-	}	
+	}
 
 	let {mm in M} K[mm,tt]:= Original_Capacity;
 
@@ -838,9 +842,9 @@ let retrain:= 0;
 repeat while (subp < max(Final_Cmax[1],Final_Cmax[2]) and retrain == 0 and subp < 112){
 	let subp:= subp + 1;
 	let Capacity:= 1;
-			
+				
 	# Walks through time until find the first failure
-	if (subp = min(Reference[1],Reference[2]) and (card(Set_Reference_Failures_1) != 0 || card(Set_Reference_Failures_2) != 0) and subp != 112) then{							
+	if (subp = min(Reference[1],Reference[2]) and (card(Set_Reference_Failures_1) != 0 || card(Set_Reference_Failures_2) != 0) and subp != 112) then{								
 		let marker:= 0;					
 		if (Reference[1] != Reference[2]) then{
 			if (Reference[1] = min(Reference[1],Reference[2])) then{
@@ -859,14 +863,15 @@ repeat while (subp < max(Final_Cmax[1],Final_Cmax[2]) and retrain == 0 and subp 
 			let Failures_2:= Failures_2 union {subp};
 		}
 						
+		#let {mm in M} K[mm,tt]:= Original_Capacity - (subp + 1);
 		let {mm in M} K[mm,tt]:= Original_Capacity;
-				
+						
 		# Verifies if the failure occurs on setup or processing
-		for{mm in M}{
+		for{mm in M}{		
 			let previous_job[mm]:= 0;	
 			let marker_setup[mm]:= 0;
 															
-			for{j in Cjs[mm]}{										
+			for{j in Cjs[mm]}{													
 				let counter_failures:= 0;
 			
 				if (mm = 1) then{
@@ -879,6 +884,13 @@ repeat while (subp < max(Final_Cmax[1],Final_Cmax[2]) and retrain == 0 and subp 
 					}
 				}
 				
+				if (counter_failures != 0) then{				
+					let CT[mm,j]:= trunc(setup[0,posII[mm,1,tt]] + sum{i in 1..index[mm,j]-1} setup[posII[mm,i,tt],posII[mm,i+1,tt]] + sum{i in 1..index[mm,j]} (p[posII[mm,i,tt]]*Original_q[posII[mm,i,tt],tt,mm]),4);
+					let CT[mm,j]:= CT[mm,j] + counter_failures;
+					
+					let CT_Backup[mm,j]:= CT[mm,j];
+				}
+												
 				if (subp >= CT[mm,j]) then{					
 					let total_q[j,tt,mm]:= total_q[j,tt,mm] + q[j,tt,mm];
 					let q[j,tt,mm]:= 0;
@@ -891,12 +903,13 @@ repeat while (subp < max(Final_Cmax[1],Final_Cmax[2]) and retrain == 0 and subp 
 						for{jj in Current_Sequence[mm]}{
 							let Current_Sequence[mm]:= Current_Sequence[mm] diff {jj};
 						}
-						
+												
 						if (mm = MF || marker = 1) then{	
 							let q[j,tt,mm]:= ((CT[mm,j] + 1) - (subp + 1))/p[j];
 						} else{
 							let q[j,tt,mm]:= (CT[mm,j] - (subp))/p[j];
-						}	
+						}
+													
 						let total_q[j,tt,mm]:= Original_q[j,tt,mm] - q[j,tt,mm];  
 						let previous_job[mm]:= j;
 						let SEQUENCE[mm]:= SEQUENCE[mm] union {j};
@@ -954,9 +967,10 @@ repeat while (subp < max(Final_Cmax[1],Final_Cmax[2]) and retrain == 0 and subp 
 											for{jj in Failures_2: CT_Backup[mm,posII[mm, index[mm,j]-1,tt]] < jj and jj < subp}{
 												let counter_failures:= counter_failures + 1;
 											}
-										}							
-									
-										let Remaining_Setup[mm]:= setup[posII[mm, index[mm,j]-1,tt],j] - (subp - CT_Backup[mm,posII[mm, index[mm,j]-1,tt]] - counter_failures);																		
+										}		
+																			
+										let Remaining_Setup[mm]:= setup[posII[mm, index[mm,j]-1,tt],j] - (subp - CT_Backup[mm,posII[mm, index[mm,j]-1,tt]] - counter_failures);		
+																										
 										let previous_job[mm]:= posII[mm, index[mm,j]-1,tt];
 										let next_job[mm]:= j;
 										let marker_setup[mm]:= 1;
@@ -977,10 +991,10 @@ repeat while (subp < max(Final_Cmax[1],Final_Cmax[2]) and retrain == 0 and subp 
 			for{j in Cjs[mm]: q[j,tt,mm] = 0}{	
 				let Final_Sequence[mm]:= Final_Sequence[mm] diff {j}; 
 			}
-		}		
-																		
+		}	
+																				
 		if (card(Final_Sequence[1]) != 0 and card(Final_Sequence[2]) != 0) then{			
-			include "/Scheduling_Heuristic_PMLALG.txt";
+			include "/Users/ferna/Drive/Tese_Algoritmos/Predictive_Reactive_Approach/Scheduling_Heuristic_PMLALG.txt";
 		} else{
 			if (Reference[1] != Reference[2]) then{
 				for{mm in M}{
@@ -1112,6 +1126,9 @@ if (retrain = 0) then{
 			if (q[j,tt,mm] > 0 || total_q[j,tt,mm] > 0) then{
 				let q[j,tt,mm]:= q[j,tt,mm] + total_q[j,tt,mm];
 			}
+			if (q[j,tt,mm] < 0 || total_q[j,tt,mm] < 0) then{
+				printf "Problem!!!" >> /Users/ferna/Drive/Tese_Algoritmos/Predictive_Reactive_Approach/ResultPMLALG_WF.txt;
+			}
 		}
 		
 		if (mm = 1) then{
@@ -1126,7 +1143,24 @@ if (retrain = 0) then{
 			let pos[mm,f,tt]:= j;
 			let f:= f + 1;
 		}
-
+								
+		for{j in Current_Sequence[mm]}{	
+			let CT[mm,j]:= trunc(setup[0,pos[mm,1,tt]] + sum{i in 1..index[mm,j]-1} setup[pos[mm,i,tt],pos[mm,i+1,tt]] + sum{i in 1..index[mm,j]} (p[pos[mm,i,tt]]*Original_q[pos[mm,i,tt],tt,mm]),4);
+			
+			if (mm = 1) then{
+				for{jj in Failures_1: jj < CT[mm,j]}{
+					let CT[mm,j]:= CT[mm,j] + 1;
+				}
+			} else{
+				for{jj in Failures_2: jj < CT[mm,j]}{
+					let CT[mm,j]:= CT[mm,j] + 1;
+				}
+			}	
+				
+			let CT_Backup[mm,j]:= CT[mm,j];
+		}
+		let Final_Cmax[mm]:= max{j in Current_Sequence[mm]} CT[mm,j];
+		
 		if (Final_Cmax[mm] > K[mm,tt] + 0.05) then{		
 			let Jobs:= 0;
 			
@@ -1191,8 +1225,7 @@ if (retrain = 0) then{
 
 		if (mm = 2 and tt = 2) then{ 
 			let tempo:= _ampl_time + _total_solve_time - tempo;
-			printf "%4.2f, %4.2f, %4.2f, %4.2f, %4.2f, %4.2f, %4.2f \n", n, v, OF, total_tardiness, total_add_of, total_idle, tempo  >> /ResultPMLALG_F2_Hybrid.txt;
+			printf "%4.2f, %4.2f, %4.2f, %4.2f, %4.2f, %4.2f, %4.2f \n", n, v, OF, total_tardiness, total_add_of, total_idle, tempo  >> /Users/ferna/Drive/Tese_Algoritmos/Predictive_Reactive_Approach/ResultPMLALG_F2_Hybrid.txt;
 		}
 	}
 }
-
